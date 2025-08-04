@@ -180,6 +180,26 @@
         console.log('🔍 Final computed display:', computedStyle.display);
         console.log('🔍 Section is visible:', targetSection.offsetParent !== null);
         console.log('🔍 Section dimensions:', targetSection.offsetWidth, 'x', targetSection.offsetHeight);
+        
+        // Check if parent elements are hiding it
+        let parent = targetSection.parentElement;
+        let level = 0;
+        while (parent && level < 5) {
+          const parentStyle = window.getComputedStyle(parent);
+          console.log(`🔍 Parent ${level}:`, parent.tagName, parent.className, 'display:', parentStyle.display, 'visibility:', parentStyle.visibility, 'opacity:', parentStyle.opacity);
+          if (parentStyle.display === 'none' || parentStyle.visibility === 'hidden' || parentStyle.opacity === '0') {
+            console.log(`🚨 Parent ${level} is hiding the section!`);
+          }
+          parent = parent.parentElement;
+          level++;
+        }
+        
+        // Try to force it even more aggressively
+        targetSection.style.setProperty('visibility', 'visible', 'important');
+        targetSection.style.setProperty('opacity', '1', 'important');
+        targetSection.style.setProperty('position', 'static', 'important');
+        targetSection.style.setProperty('z-index', '9999', 'important');
+        console.log('🔧 Applied aggressive visibility fixes');
       }, 100);
     } else {
       console.log('❌ Target section not found for tier:', tier);
