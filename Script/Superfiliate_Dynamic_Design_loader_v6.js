@@ -173,6 +173,14 @@
       // Force it to be visible with !important
       targetSection.style.setProperty('display', 'block', 'important');
       console.log('🔧 Forced display block with !important');
+      
+      // Additional debugging
+      setTimeout(() => {
+        const computedStyle = window.getComputedStyle(targetSection);
+        console.log('🔍 Final computed display:', computedStyle.display);
+        console.log('🔍 Section is visible:', targetSection.offsetParent !== null);
+        console.log('🔍 Section dimensions:', targetSection.offsetWidth, 'x', targetSection.offsetHeight);
+      }, 100);
     } else {
       console.log('❌ Target section not found for tier:', tier);
     }
