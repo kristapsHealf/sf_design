@@ -119,11 +119,19 @@
   function start () {
     whenWrapperReady(wrapper => {
       /* initial run */
-      wrapper.style.visibility = 'hidden';            // hide to prevent flash
-      setTimeout(() => {
-        wrapper.style.visibility = 'visible';         // reveal after tier set
-        boot(wrapper);
-      }, INIT_DELAY);
+      wrapper.style.visibility = 'hidden';            // hide immediately
+      const t0 = Date.now();
+      const poll = setInterval(() => {
+        const { rawName, revenue } = readVars();
+        const dataReady = rawName && !isNaN(revenue);
+        const waited = Date.now() - t0 >= INIT_DELAY;
+
+        if (dataReady || waited) {
+          clearInterval(poll);                        // stop polling
+          boot(wrapper);                              // run once
+          wrapper.style.visibility = 'visible';       // reveal
+        }
+      }, 50);
     });
   }
 
