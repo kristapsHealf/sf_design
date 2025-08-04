@@ -206,12 +206,6 @@
   function start () {
     console.log('🎬 Start function called');
     
-    // Immediately hide all sections to prevent flash
-    console.log('⚡ Immediately hiding all sections to prevent flash...');
-    document.querySelectorAll('[data-tier]').forEach(s => {
-      s.style.display = 'none';
-    });
-    
     whenWrapperReady(wrapper => {
       console.log('🎯 Wrapper ready, setting up initial boot...');
       
