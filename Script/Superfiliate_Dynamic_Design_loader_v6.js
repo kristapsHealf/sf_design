@@ -1,8 +1,6 @@
 (function () {
   'use strict';
 
-  const INIT_DELAY = 600;
-
   if (!location.pathname.includes('/portal') || window.__sfTierLoaded) return;
   window.__sfTierLoaded = true;
 
@@ -17,32 +15,20 @@
     }).observe(document.body, { childList: true, subtree: true });
   }
 
-  function readVars () {
-    const nameElement = document.getElementById('sf-campaign-name');
-    const revElement = document.getElementById('sf-revenue');
-    const rawName = (nameElement||{}).textContent?.trim() || '';
-    const rawRev = (revElement||{}).textContent?.trim() || '';
-    const revenue = parseFloat(rawRev.replace(/[^0-9.]/g,'')) || 0;
-    return { rawName, revenue };
-  }
-
-  function pickTier ({ rawName, revenue }) {
-    const n = rawName.toLowerCase();
+  function pickTier (campaignName) {
+    const n = campaignName.toLowerCase();
     if (n.includes('empower') || n.includes('t3')) return 'empower';
     if (n.includes('radiate') || n.includes('t2')) return 'radiate';
     if (n.includes('rise') || n.includes('t1')) return 'rise';
-    if (revenue >= 2500) return 'empower';
-    if (revenue >= 500) return 'radiate';
-    return 'rise';
+    return 'rise'; // default
   }
 
-  function updateBar (section, tier) {
+  function updateBar (section, tier, revenue) {
     if (!section) return;
     const fill = section.querySelector('.progress-bar-fill');
     const txt = section.querySelector('.progress-bar-text');
     if (!fill || !txt) return;
 
-    const revenue = parseFloat((document.getElementById('sf-revenue')||{}).textContent.replace(/[^0-9.]/g,'')) || 0;
     const target = targets[tier];
 
     if (target === null) {
@@ -67,22 +53,22 @@
       targetSection.style.setProperty('display', 'block', 'important');
     }
     
-    updateBar(targetSection, tier);
+    const revenue = parseInt(wrapper.dataset.revenue) || 0;
+    updateBar(targetSection, tier, revenue);
   }
 
   function boot (wrapper) {
-    const vars = readVars();
-    const tier = pickTier(vars);
+    const campaignName = wrapper.dataset.tier || '';
+    const tier = pickTier(campaignName);
     showTier(tier, wrapper);
   }
 
   function start () {
     whenWrapperReady(wrapper => {
       wrapper.style.visibility = 'hidden';
-      setTimeout(() => {
-        wrapper.style.visibility = 'visible';
-        boot(wrapper);
-      }, INIT_DELAY);
+      // No delay needed - data is already in attributes!
+      wrapper.style.visibility = 'visible';
+      boot(wrapper);
     });
   }
 
