@@ -168,28 +168,20 @@
       console.log(`📋 Section ${index + 1}: tier="${sectionTier}", showing: ${on}`);
       console.log(`📋 Section ${index + 1} before:`, sec.style.display);
       
-      // More aggressive style setting
+      // Simple approach: remove inline styles and set display
       if (on) {
-        sec.style.setProperty('display', 'block', 'important');
-        sec.style.setProperty('visibility', 'visible', 'important');
-        sec.style.setProperty('opacity', '1', 'important');
-        sec.style.setProperty('position', 'static', 'important');
-        sec.style.setProperty('z-index', '9999', 'important');
+        sec.removeAttribute('style'); // Remove inline style="display:none;"
+        sec.style.display = 'block';
       } else {
-        sec.style.setProperty('display', 'none', 'important');
-        sec.style.setProperty('visibility', 'hidden', 'important');
-        sec.style.setProperty('opacity', '0', 'important');
+        sec.style.display = 'none';
       }
       
       console.log(`📋 Section ${index + 1} after:`, sec.style.display);
       
       // Check if it worked
-      setTimeout(() => {
-        const computedStyle = window.getComputedStyle(sec);
-        console.log(`📋 Section ${index + 1} computed display:`, computedStyle.display);
-        console.log(`📋 Section ${index + 1} computed visibility:`, computedStyle.visibility);
-        console.log(`📋 Section ${index + 1} computed opacity:`, computedStyle.opacity);
-      }, 100);
+      const computedStyle = window.getComputedStyle(sec);
+      console.log(`📋 Section ${index + 1} computed display:`, computedStyle.display);
+      console.log(`📋 Section ${index + 1} is visible:`, sec.offsetParent !== null);
     });
     
     const targetSection = wrapper.querySelector(`[data-tier="${tier}"]`);
