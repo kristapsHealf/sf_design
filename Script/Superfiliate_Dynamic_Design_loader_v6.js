@@ -149,21 +149,22 @@
     console.log('🎭 Showing tier:', tier);
     console.log('📦 Wrapper element:', wrapper);
     
-    // Use CSS classes instead of manipulating styles directly
-    console.log('🎨 Setting body class to:', `tier-${tier}`);
+    // First, hide ALL tier sections
+    document.querySelectorAll('.tier-section').forEach(s => {
+      s.style.display = 'none';
+      console.log('🚫 Hiding section:', s.dataset.tier);
+    });
     
-    // Remove any existing tier classes
-    document.body.classList.remove('tier-rise', 'tier-radiate', 'tier-empower');
-    
-    // Add the current tier class
-    document.body.classList.add(`tier-${tier}`);
-    
-    console.log('🎨 Body classes after update:', document.body.className);
-    
+    // Then show only the target tier
     const targetSection = wrapper.querySelector(`[data-tier="${tier}"]`);
-    console.log('🎯 Target section for progress bar:', targetSection);
-    updateBar(targetSection, tier);
+    if (targetSection) {
+      targetSection.style.display = 'block';
+      console.log('✅ Showing section:', tier);
+    } else {
+      console.log('❌ Target section not found for tier:', tier);
+    }
     
+    updateBar(targetSection, tier);
     console.log('✅ Tier display updated successfully');
   }
 
@@ -194,6 +195,10 @@
       }, INIT_DELAY);
 
       /* re‑run when the builder mutates the DOM */
+      // TEMPORARILY DISABLED - focusing on basic functionality first
+      console.log('👀 MutationObserver temporarily disabled for debugging');
+      
+      /*
       let pending = false;
       let lastTier = null;
       console.log('👀 Setting up MutationObserver for DOM changes...');
@@ -232,6 +237,7 @@
           }, MUTATION_DELAY);
         });
       }).observe(wrapper, { childList: true, subtree: true });
+      */
       
       console.log('✅ Start function setup completed');
     });
