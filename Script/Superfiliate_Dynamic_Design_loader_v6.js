@@ -2,7 +2,7 @@
   'use strict';
 
   /* tunables — adjust if needed */
-  const INIT_DELAY     = 50;    // ms after first paint (very fast but safe)
+  const INIT_DELAY     = 100;   // ms after first paint (reduced for faster response)
   const MUTATION_DELAY = 150;   // ms debounce on DOM changes
 
   console.log('🚀 SF Portal Design Loader v6 starting...');
@@ -213,11 +213,11 @@
     });
     
     whenWrapperReady(wrapper => {
-      console.log('🎯 Wrapper ready, setting up fast boot...');
+      console.log('🎯 Wrapper ready, setting up initial boot...');
       
-      /* initial run - very fast */
+      /* initial run */
       setTimeout(() => {
-        console.log('⚡ Fast boot timeout triggered');
+        console.log('⏰ Initial boot timeout triggered');
         boot(wrapper);
       }, INIT_DELAY);
 
