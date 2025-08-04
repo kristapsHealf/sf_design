@@ -1,74 +1,135 @@
 (function () {
   'use strict';
 
-  /* --------- config --------- */
+  /* tunables — adjust if needed */
+  const INIT_DELAY     = 600;   // ms after first paint
+  const MUTATION_DELAY = 150;   // ms debounce on DOM changes
+
+  if (!location.pathname.includes('/portal') || window.__sfTierLoaded) {
+    return;
+  }
+  
+  window.__sfTierLoaded = true;
+
   const targets = { rise: 500, radiate: 2500, empower: null };
 
-  /* --------- tiny helpers --------- */
-  const $ = id => document.getElementById(id);
+  /* wait until React renders the wrapper */
+  function whenWrapperReady (cb) {
+    const w = document.getElementById('sf-campaign-wrapper');
+    if (w) { 
+      cb(w); 
+      return; 
+    }
+    new MutationObserver((_, o) => {
+      const w2 = document.getElementById('sf-campaign-wrapper');
+      if (w2) { 
+        o.disconnect(); 
+        cb(w2); 
+      }
+    }).observe(document.body, { childList: true, subtree: true });
+  }
 
-  const pickTier = ({ name, revenue }) => {
-    const n = name.toLowerCase();
-    if (n.includes('empower') || n.includes('t3') || revenue >= 2500) return 'empower';
-    if (n.includes('radiate') || n.includes('t2') || revenue >=  500) return 'radiate';
-    if (n.includes('rise')    || n.includes('t1')) return 'rise';
-    return null; // No tier found
-  };
+  /* helpers -------------------------------------------------- */
+  function readVars () {
+    const nameElement = document.getElementById('sf-campaign-name');
+    const revElement = document.getElementById('sf-revenue');
+    
+    const rawName = (nameElement||{}).textContent?.trim() || '';
+    const rawRev  = (revElement||{}).textContent?.trim() || '';
+    
+    const revenue = parseFloat(rawRev.replace(/[^0-9.]/g,'')) || 0;
+    
+    return { rawName, revenue };
+  }
 
-  const updateBar = (section, tier, revenue) => {
+  function pickTier ({ rawName, revenue }) {
+    const n = rawName.toLowerCase();
+    
+    if (n.includes('empower') || n.includes('t3')) {
+      return 'empower';
+    }
+    if (n.includes('radiate') || n.includes('t2')) {
+      return 'radiate';
+    }
+    if (n.includes('rise')    || n.includes('t1')) {
+      return 'rise';
+    }
+    
+    if (revenue >= 2500) {
+      return 'empower';
+    }
+    if (revenue >=  500) {
+      return 'radiate';
+    }
+    
+    return 'rise';
+  }
+
+  function updateBar (section, tier) {
     if (!section) return;
+    
     const fill = section.querySelector('.progress-bar-fill');
     const txt  = section.querySelector('.progress-bar-text');
+    
     if (!fill || !txt) return;
 
-    const target = targets[tier];
-    const pct    = target ? Math.min(100, (revenue / target) * 100) : 100;
-    fill.style.width = pct + '%';
-    txt.textContent  = target ? `£${revenue} / £${target}` : `£${revenue} (max tier)`;
-  };
+    const revenue = parseFloat((document.getElementById('sf-revenue')||{}).textContent.replace(/[^0-9.]/g,'')) || 0;
+    const target  = targets[tier];
 
-  const render = () => {
-    const nameEl = $('sf-campaign-name');
-    const revEl  = $('sf-revenue');
-    const wrap   = $('sf-campaign-wrapper');
-    if (!nameEl || !revEl || !wrap) return;                 // not ready yet
-
-    const revenue = +revEl.textContent.replace(/[^0-9.]/g, '') || 0;
-    const tier    = pickTier({ name: nameEl.textContent || '', revenue });
-
-    // If no tier found, terminate script
-    if (!tier) {
-      console.log('❌ No tier found for campaign, terminating script');
-      return;
+    if (target === null) {
+      fill.style.width = '100%';
+      txt.textContent  = `£${revenue} (max tier)`;
+    } else {
+      let pct = Math.min(100, revenue / target * 100);
+      if (revenue > 0 && pct < 10) pct = 10;
+      if (revenue === 0) pct = 0;
+      
+      fill.style.width = pct + '%';
+      txt.textContent  = `£${revenue} / £${target}`;
     }
+  }
 
-    document.querySelectorAll('.tier-section').forEach(s => s.style.display = 'none');
-    const section = document.querySelector(`[data-tier="${tier}"]`);
-    if (section) section.style.display = 'block';
-
-    updateBar(section, tier, revenue);
-    wrap.style.visibility = 'visible';                      // remove flash
-  };
-
-  /* --------- bootstrap --------- */
-  const shouldRun = location.pathname.startsWith('/portal/');
-  if (!shouldRun) return;
-
-  // Hide wrapper immediately → no flash of wrong content
-  (function hideEarly () {
-    const w = $('sf-campaign-wrapper');
-    if (w) w.style.visibility = 'hidden';
-    else requestAnimationFrame(hideEarly);
-  })();
-
-  // Poll until the three key nodes exist, then render once
-  const poll = setInterval(() => {
-    if ($('sf-campaign-name') && $('sf-revenue') && $('sf-campaign-wrapper')) {
-      clearInterval(poll);
-      render();
-      // Lightweight observer to re-render if React swaps nodes later
-      new MutationObserver(render)
-        .observe($('sf-campaign-wrapper'), { childList: true, subtree: true });
+  function showTier (tier, wrapper) {
+    // Find all sections with data-tier attribute
+    const allTierSections = document.querySelectorAll('[data-tier]');
+    
+    // First, hide ALL tier sections
+    allTierSections.forEach(s => {
+      s.style.display = 'none';
+    });
+    
+    // Then show only the target tier
+    const targetSection = document.querySelector(`[data-tier="${tier}"]`);
+    if (targetSection) {
+      targetSection.style.display = 'block';
+      targetSection.style.setProperty('display', 'block', 'important');
     }
-  }, 50);   // 20 fps; fast, cheap, stops automatically
+    
+    updateBar(targetSection, tier);
+  }
+
+  /* main work ------------------------------------------------ */
+  function boot (wrapper) {
+    const vars = readVars();
+    const tier = pickTier(vars);
+    showTier(tier, wrapper);
+  }
+
+  /* kick‑off ------------------------------------------------- */
+  function start () {
+    whenWrapperReady(wrapper => {
+      /* initial run */
+      wrapper.style.visibility = 'hidden';            // hide to prevent flash
+      setTimeout(() => {
+        wrapper.style.visibility = 'visible';         // reveal after tier set
+        boot(wrapper);
+      }, INIT_DELAY);
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', start, { once: true });
+  } else {
+    start();
+  }
 })();
