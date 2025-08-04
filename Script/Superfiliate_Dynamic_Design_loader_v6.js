@@ -200,6 +200,27 @@
         targetSection.style.setProperty('position', 'static', 'important');
         targetSection.style.setProperty('z-index', '9999', 'important');
         console.log('🔧 Applied aggressive visibility fixes');
+        
+        // Set up persistent monitoring to see if something hides it later
+        let checkCount = 0;
+        const monitorInterval = setInterval(() => {
+          checkCount++;
+          const currentStyle = window.getComputedStyle(targetSection);
+          if (currentStyle.display === 'none' || currentStyle.visibility === 'hidden') {
+            console.log(`🚨 Section was hidden at check ${checkCount}! Display: ${currentStyle.display}, Visibility: ${currentStyle.visibility}`);
+            // Re-show it
+            targetSection.style.setProperty('display', 'block', 'important');
+            targetSection.style.setProperty('visibility', 'visible', 'important');
+            console.log('🔧 Re-showed section after it was hidden');
+          }
+          
+          // Stop monitoring after 10 seconds
+          if (checkCount >= 100) {
+            clearInterval(monitorInterval);
+            console.log('🛑 Stopped monitoring section visibility');
+          }
+        }, 100);
+        
       }, 100);
     } else {
       console.log('❌ Target section not found for tier:', tier);
