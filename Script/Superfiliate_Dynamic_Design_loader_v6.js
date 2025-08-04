@@ -2,7 +2,7 @@
   'use strict';
 
   /* tunables — adjust if needed */
-  const INIT_DELAY     = 100;   // ms after first paint (reduced for faster response)
+  const INIT_DELAY     = 600;   // ms after first paint
   const MUTATION_DELAY = 150;   // ms debounce on DOM changes
 
   console.log('🚀 SF Portal Design Loader v6 starting...');
@@ -180,47 +180,6 @@
         console.log('🔍 Final computed display:', computedStyle.display);
         console.log('🔍 Section is visible:', targetSection.offsetParent !== null);
         console.log('🔍 Section dimensions:', targetSection.offsetWidth, 'x', targetSection.offsetHeight);
-        
-        // Check if parent elements are hiding it
-        let parent = targetSection.parentElement;
-        let level = 0;
-        while (parent && level < 5) {
-          const parentStyle = window.getComputedStyle(parent);
-          console.log(`🔍 Parent ${level}:`, parent.tagName, parent.className, 'display:', parentStyle.display, 'visibility:', parentStyle.visibility, 'opacity:', parentStyle.opacity);
-          if (parentStyle.display === 'none' || parentStyle.visibility === 'hidden' || parentStyle.opacity === '0') {
-            console.log(`🚨 Parent ${level} is hiding the section!`);
-          }
-          parent = parent.parentElement;
-          level++;
-        }
-        
-        // Try to force it even more aggressively
-        targetSection.style.setProperty('visibility', 'visible', 'important');
-        targetSection.style.setProperty('opacity', '1', 'important');
-        targetSection.style.setProperty('position', 'static', 'important');
-        targetSection.style.setProperty('z-index', '9999', 'important');
-        console.log('🔧 Applied aggressive visibility fixes');
-        
-        // Set up persistent monitoring to see if something hides it later
-        let checkCount = 0;
-        const monitorInterval = setInterval(() => {
-          checkCount++;
-          const currentStyle = window.getComputedStyle(targetSection);
-          if (currentStyle.display === 'none' || currentStyle.visibility === 'hidden') {
-            console.log(`🚨 Section was hidden at check ${checkCount}! Display: ${currentStyle.display}, Visibility: ${currentStyle.visibility}`);
-            // Re-show it
-            targetSection.style.setProperty('display', 'block', 'important');
-            targetSection.style.setProperty('visibility', 'visible', 'important');
-            console.log('🔧 Re-showed section after it was hidden');
-          }
-          
-          // Stop monitoring after 10 seconds
-          if (checkCount >= 100) {
-            clearInterval(monitorInterval);
-            console.log('🛑 Stopped monitoring section visibility');
-          }
-        }, 100);
-        
       }, 100);
     } else {
       console.log('❌ Target section not found for tier:', tier);
@@ -307,39 +266,15 @@
 
   console.log('📄 Document ready state:', document.readyState);
   
-  // More robust initialization with multiple fallbacks
-  function initializeScript() {
-    console.log('🚀 Initializing script...');
-    
-    // Check if wrapper exists
-    const wrapper = document.getElementById('sf-campaign-wrapper');
-    if (!wrapper) {
-      console.log('⏳ Wrapper not found, retrying in 500ms...');
-      setTimeout(initializeScript, 500);
-      return;
-    }
-    
-    // Check if campaign name exists
-    const campaignName = document.getElementById('sf-campaign-name');
-    if (!campaignName || !campaignName.textContent.trim()) {
-      console.log('⏳ Campaign name not ready, retrying in 500ms...');
-      setTimeout(initializeScript, 500);
-      return;
-    }
-    
-    console.log('✅ All elements ready, starting script...');
-    start();
-  }
-  
   if (document.readyState === 'loading') {
     console.log('⏳ Document still loading, waiting for DOMContentLoaded...');
     document.addEventListener('DOMContentLoaded', () => {
       console.log('📋 DOMContentLoaded event fired');
-      setTimeout(initializeScript, 100); // Small delay to ensure content is ready
+      start();
     }, { once: true });
   } else {
-    console.log('✅ Document already loaded, starting with delay...');
-    setTimeout(initializeScript, 100); // Small delay to ensure content is ready
+    console.log('✅ Document already loaded, starting immediately');
+    start();
   }
   
   console.log('🎉 Script initialization sequence completed');
