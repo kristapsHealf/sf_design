@@ -87,7 +87,8 @@
     console.log('🎭 Showing tier:', tier);
     console.log('📦 Wrapper element:', wrapper);
     
-    const allTierSections = document.querySelectorAll('[data-tier]');
+    // Only select tier sections, not the wrapper itself
+    const allTierSections = document.querySelectorAll('section[data-tier]');
     console.log('🔍 Found tier sections:', allTierSections.length);
     
     allTierSections.forEach((s, i) => {
@@ -99,7 +100,7 @@
       console.log('🚫 Hiding section:', s.dataset.tier);
     });
     
-    const targetSection = document.querySelector(`[data-tier="${tier}"]`);
+    const targetSection = document.querySelector(`section[data-tier="${tier}"]`);
     if (targetSection) {
       targetSection.style.display = 'block';
       console.log('✅ Showing section:', tier);
@@ -133,6 +134,12 @@
     whenWrapperReady(wrapper => {
       console.log('🎯 Wrapper ready, starting boot...');
       wrapper.style.visibility = 'hidden';
+      
+      // Ensure wrapper is visible (it might have display: none)
+      wrapper.style.display = 'block';
+      wrapper.style.setProperty('display', 'block', 'important');
+      console.log('🔧 Forced wrapper to be visible');
+      
       wrapper.style.visibility = 'visible';
       boot(wrapper);
     });
