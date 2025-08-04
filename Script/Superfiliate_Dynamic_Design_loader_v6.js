@@ -170,8 +170,11 @@
       
       // Simple approach: remove inline styles and set display
       if (on) {
+        console.log(`🔧 Section ${index + 1} - Removing style attribute...`);
         sec.removeAttribute('style'); // Remove inline style="display:none;"
+        console.log(`🔧 Section ${index + 1} - Setting display to block...`);
         sec.style.display = 'block';
+        console.log(`🔧 Section ${index + 1} - Final style:`, sec.getAttribute('style'));
       } else {
         sec.style.display = 'none';
       }
