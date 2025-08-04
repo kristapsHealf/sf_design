@@ -23,7 +23,8 @@
     if (!fill || !txt) return;
 
     const target = targets[tier];
-    fill.style.width = target ? `${Math.min(100, (revenue / target) * 100)}%` : '100%';
+    const pct = target ? Math.min(100, (revenue / target) * 100) : 100;
+    fill.style.width = `${pct}%`;
     txt.textContent = target ? `£${revenue} / £${target}` : `£${revenue} (max tier)`;
   }
 
@@ -35,41 +36,36 @@
   }
 
   function boot() {
+    const wrapper = document.getElementById('sf-campaign-wrapper');
+    const nameElem = document.getElementById('sf-campaign-name');
+    const revElem = document.getElementById('sf-revenue');
+    
+    if (!wrapper || !nameElem || !revElem) return;
+
     const vars = readVars();
     const tier = pickTier(vars);
     const section = showTier(tier);
     updateBar(section, tier, vars.revenue);
   }
 
-  function setupObserver() {
-    const wrapper = document.getElementById('sf-campaign-wrapper');
-    if (!wrapper) return;
-
-    boot();  // Run immediately upon wrapper detection
-
+  function observeForever() {
     const observer = new MutationObserver(() => {
-      observer.disconnect();  // Avoid loop
-      boot();                 // Re-run on changes
-      observer.observe(wrapper, { childList: true, subtree: true });
+      boot();
     });
 
-    observer.observe(wrapper, { childList: true, subtree: true });
-  }
-
-  function init() {
-    if (!location.pathname.includes('/portal')) return;
-
-    new MutationObserver((_, obs) => {
-      if (document.getElementById('sf-campaign-wrapper')) {
-        obs.disconnect();
-        setupObserver();
-      }
-    }).observe(document.body, { childList: true, subtree: true });
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+    });
   }
 
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
+    document.addEventListener('DOMContentLoaded', () => {
+      boot();
+      observeForever();
+    });
   } else {
-    init();
+    boot();
+    observeForever();
   }
 })();
