@@ -6,15 +6,14 @@
   const MUTATION_DELAY = 150;   // ms debounce on DOM changes
 
   if (!location.pathname.includes('/portal') || window.__sfTierLoaded) {
+    console.log('Script skipped - not on portal or already loaded');
     return;
   }
   
   window.__sfTierLoaded = true;
+  console.log('SF Portal Design Loader starting...');
 
-  /* anti-flash guard: keep wrapper invisible until boot() finishes */
-  const flashGuard = document.createElement('style');
-  flashGuard.textContent = '#sf-campaign-wrapper{visibility:hidden}';
-  document.head.appendChild(flashGuard);
+
 
   const targets = { rise: 500, radiate: 2500, empower: null };
 
@@ -117,15 +116,15 @@
   function boot (wrapper) {
     const vars = readVars();
     const tier = pickTier(vars);
+    console.log('Boot - vars:', vars, 'tier:', tier);
     showTier(tier, wrapper);
-    flashGuard.remove();          // reveal finished design
-
   }
 
   /* kick‑off ------------------------------------------------- */
   function start () {
     whenWrapperReady(wrapper => {
       /* initial run */
+      wrapper.style.visibility = 'hidden';            // hide to prevent flash
       const t0 = Date.now();
       const poll = setInterval(() => {
         const { rawName, revenue } = readVars();
@@ -135,7 +134,7 @@
         if (dataReady || waited) {
           clearInterval(poll);                        // stop polling
           boot(wrapper);                              // run once
-          wrapper.style.visibility = '';       // reveal
+          wrapper.style.visibility = 'visible';       // reveal
         }
       }, 50);
     });
