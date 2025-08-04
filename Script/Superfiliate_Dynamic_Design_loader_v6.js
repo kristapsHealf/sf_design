@@ -126,7 +126,6 @@
   function start () {
     whenWrapperReady(wrapper => {
       /* initial run */
-      wrapper.style.visibility = 'hidden';            // hide immediately
       const t0 = Date.now();
       const poll = setInterval(() => {
         const { rawName, revenue } = readVars();
@@ -136,7 +135,7 @@
         if (dataReady || waited) {
           clearInterval(poll);                        // stop polling
           boot(wrapper);                              // run once
-          wrapper.style.visibility = 'visible';       // reveal
+          wrapper.style.visibility = '';       // reveal
         }
       }, 50);
     });
