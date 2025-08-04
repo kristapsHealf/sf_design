@@ -307,15 +307,39 @@
 
   console.log('📄 Document ready state:', document.readyState);
   
+  // More robust initialization with multiple fallbacks
+  function initializeScript() {
+    console.log('🚀 Initializing script...');
+    
+    // Check if wrapper exists
+    const wrapper = document.getElementById('sf-campaign-wrapper');
+    if (!wrapper) {
+      console.log('⏳ Wrapper not found, retrying in 500ms...');
+      setTimeout(initializeScript, 500);
+      return;
+    }
+    
+    // Check if campaign name exists
+    const campaignName = document.getElementById('sf-campaign-name');
+    if (!campaignName || !campaignName.textContent.trim()) {
+      console.log('⏳ Campaign name not ready, retrying in 500ms...');
+      setTimeout(initializeScript, 500);
+      return;
+    }
+    
+    console.log('✅ All elements ready, starting script...');
+    start();
+  }
+  
   if (document.readyState === 'loading') {
     console.log('⏳ Document still loading, waiting for DOMContentLoaded...');
     document.addEventListener('DOMContentLoaded', () => {
       console.log('📋 DOMContentLoaded event fired');
-      start();
+      setTimeout(initializeScript, 100); // Small delay to ensure content is ready
     }, { once: true });
   } else {
-    console.log('✅ Document already loaded, starting immediately');
-    start();
+    console.log('✅ Document already loaded, starting with delay...');
+    setTimeout(initializeScript, 100); // Small delay to ensure content is ready
   }
   
   console.log('🎉 Script initialization sequence completed');
