@@ -149,17 +149,30 @@
     console.log('🎭 Showing tier:', tier);
     console.log('📦 Wrapper element:', wrapper);
     
+    // Find all sections with data-tier attribute (more robust)
+    const allTierSections = document.querySelectorAll('[data-tier]');
+    console.log('🔍 Found tier sections:', allTierSections.length);
+    
+    // Log all sections for debugging
+    allTierSections.forEach((s, i) => {
+      console.log(`📋 Section ${i + 1}: data-tier="${s.dataset.tier}", class="${s.className}"`);
+    });
+    
     // First, hide ALL tier sections
-    document.querySelectorAll('.tier-section').forEach(s => {
+    allTierSections.forEach(s => {
       s.style.display = 'none';
       console.log('🚫 Hiding section:', s.dataset.tier);
     });
     
     // Then show only the target tier
-    const targetSection = wrapper.querySelector(`[data-tier="${tier}"]`);
+    const targetSection = document.querySelector(`[data-tier="${tier}"]`);
     if (targetSection) {
       targetSection.style.display = 'block';
       console.log('✅ Showing section:', tier);
+      
+      // Force it to be visible with !important
+      targetSection.style.setProperty('display', 'block', 'important');
+      console.log('🔧 Forced display block with !important');
     } else {
       console.log('❌ Target section not found for tier:', tier);
     }
