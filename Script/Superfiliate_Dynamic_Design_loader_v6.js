@@ -149,43 +149,16 @@
     console.log('🎭 Showing tier:', tier);
     console.log('📦 Wrapper element:', wrapper);
     
-    const tierSections = wrapper.querySelectorAll('.tier-section');
-    console.log('🔍 Found tier sections:', tierSections.length);
+    // Use CSS classes instead of manipulating styles directly
+    console.log('🎨 Setting body class to:', `tier-${tier}`);
     
-    if (tierSections.length === 0) {
-      console.log('❌ No tier sections found! Checking for alternative selectors...');
-      const allSections = wrapper.querySelectorAll('section');
-      console.log('📋 All sections found:', allSections.length);
-      allSections.forEach((sec, index) => {
-        console.log(`📋 Section ${index + 1}:`, sec.className, sec.dataset);
-      });
-      return;
-    }
+    // Remove any existing tier classes
+    document.body.classList.remove('tier-rise', 'tier-radiate', 'tier-empower');
     
-    tierSections.forEach((sec, index) => {
-      const sectionTier = sec.dataset.tier;
-      const on = sectionTier === tier;
-      console.log(`📋 Section ${index + 1}: tier="${sectionTier}", showing: ${on}`);
-      console.log(`📋 Section ${index + 1} before:`, sec.style.display);
-      
-      // Simple approach: remove inline styles and set display
-      if (on) {
-        console.log(`🔧 Section ${index + 1} - Removing style attribute...`);
-        sec.removeAttribute('style'); // Remove inline style="display:none;"
-        console.log(`🔧 Section ${index + 1} - Setting display to block...`);
-        sec.style.display = 'block';
-        console.log(`🔧 Section ${index + 1} - Final style:`, sec.getAttribute('style'));
-      } else {
-        sec.style.display = 'none';
-      }
-      
-      console.log(`📋 Section ${index + 1} after:`, sec.style.display);
-      
-      // Check if it worked
-      const computedStyle = window.getComputedStyle(sec);
-      console.log(`📋 Section ${index + 1} computed display:`, computedStyle.display);
-      console.log(`📋 Section ${index + 1} is visible:`, sec.offsetParent !== null);
-    });
+    // Add the current tier class
+    document.body.classList.add(`tier-${tier}`);
+    
+    console.log('🎨 Body classes after update:', document.body.className);
     
     const targetSection = wrapper.querySelector(`[data-tier="${tier}"]`);
     console.log('🎯 Target section for progress bar:', targetSection);
