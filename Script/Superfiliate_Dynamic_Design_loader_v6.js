@@ -11,6 +11,11 @@
   
   window.__sfTierLoaded = true;
 
+  /* anti-flash guard: keep wrapper invisible until boot() finishes */
+  const flashGuard = document.createElement('style');
+  flashGuard.textContent = '#sf-campaign-wrapper{visibility:hidden}';
+  document.head.appendChild(flashGuard);
+
   const targets = { rise: 500, radiate: 2500, empower: null };
 
   /* wait until React renders the wrapper */
@@ -113,6 +118,8 @@
     const vars = readVars();
     const tier = pickTier(vars);
     showTier(tier, wrapper);
+    flashGuard.remove();          // reveal finished design
+
   }
 
   /* kick‑off ------------------------------------------------- */
