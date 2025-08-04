@@ -189,6 +189,7 @@
 
       /* re‑run when the builder mutates the DOM */
       let pending = false;
+      let lastTier = null;
       console.log('👀 Setting up MutationObserver for DOM changes...');
       
       new MutationObserver((mutations) => {
@@ -196,13 +197,32 @@
           console.log('⏳ Mutation already pending, skipping...');
           return;
         }
+        
+        // Check if this mutation was caused by our own script
+        const isOwnMutation = mutations.some(mutation => 
+          mutation.type === 'attributes' && 
+          (mutation.attributeName === 'style' || mutation.attributeName === 'data-tier')
+        );
+        
+        if (isOwnMutation) {
+          console.log('🚫 Ignoring own DOM mutation to prevent infinite loop');
+          return;
+        }
+        
         console.log('🔄 DOM mutation detected:', mutations.length, 'changes');
         pending = true;
         requestAnimationFrame(() => {
           pending = false;
           setTimeout(() => {
             console.log('⏰ Mutation-triggered boot timeout triggered');
-            boot(wrapper);
+            const currentTier = pickTier(readVars());
+            if (currentTier !== lastTier) {
+              console.log('🔄 Tier changed from', lastTier, 'to', currentTier);
+              lastTier = currentTier;
+              boot(wrapper);
+            } else {
+              console.log('⏭️ Tier unchanged, skipping boot');
+            }
           }, MUTATION_DELAY);
         });
       }).observe(wrapper, { childList: true, subtree: true });
