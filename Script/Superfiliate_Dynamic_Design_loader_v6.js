@@ -1,76 +1,75 @@
 (function () {
   'use strict';
 
-  if (!location.pathname.includes('/portal/home') || window.__sfTierLoaded) return;
-  window.__sfTierLoaded = true;
-
   const targets = { rise: 500, radiate: 2500, empower: null };
 
-  let cachedNameElement, cachedRevElement;
-
-  function whenWrapperReady(cb) {
-    const w = document.getElementById('sf-campaign-wrapper');
-    if (w) return cb(w);
-    const observer = new MutationObserver(() => {
-      const w2 = document.getElementById('sf-campaign-wrapper');
-      if (w2) { observer.disconnect(); cb(w2); }
-    });
-    observer.observe(document.body, { childList: true, subtree: true });
-  }
-
-  function readVars () {
-    cachedNameElement ||= document.getElementById('sf-campaign-name');
-    cachedRevElement  ||= document.getElementById('sf-revenue');
-    const rawName = cachedNameElement?.textContent.trim() || '';
-    const revenue = parseFloat(cachedRevElement?.textContent.replace(/[^0-9.]/g, '') || 0);
+  function readVars() {
+    const rawName = document.getElementById('sf-campaign-name')?.textContent.trim() || '';
+    const revenue = parseFloat(document.getElementById('sf-revenue')?.textContent.replace(/[^0-9.]/g, '') || 0);
     return { rawName, revenue };
   }
 
-  function pickTier ({ rawName, revenue }) {
+  function pickTier({ rawName, revenue }) {
     const n = rawName.toLowerCase();
     if (n.includes('empower') || n.includes('t3') || revenue >= 2500) return 'empower';
     if (n.includes('radiate') || n.includes('t2') || revenue >= 500) return 'radiate';
     return 'rise';
   }
 
-  function updateBar (section, tier, revenue) {
+  function updateBar(section, tier, revenue) {
     if (!section) return;
     const fill = section.querySelector('.progress-bar-fill');
-    const txt  = section.querySelector('.progress-bar-text');
+    const txt = section.querySelector('.progress-bar-text');
     if (!fill || !txt) return;
 
     const target = targets[tier];
-    if (target === null) {
-      fill.style.width = '100%';
-      txt.textContent  = `£${revenue} (max tier)`;
-    } else {
-      const pct = Math.min(100, (revenue / target) * 100);
-      fill.style.width = `${pct}%`;
-      txt.textContent  = `£${revenue} / £${target}`;
-    }
+    fill.style.width = target ? `${Math.min(100, (revenue / target) * 100)}%` : '100%';
+    txt.textContent = target ? `£${revenue} / £${target}` : `£${revenue} (max tier)`;
   }
 
-  function showTier (tier) {
+  function showTier(tier) {
     document.querySelectorAll('.tier-section').forEach(s => s.style.display = 'none');
     const target = document.querySelector(`[data-tier="${tier}"]`);
     if (target) target.style.display = 'block';
     return target;
   }
 
-  function boot () {
+  function boot() {
     const vars = readVars();
     const tier = pickTier(vars);
     const section = showTier(tier);
     updateBar(section, tier, vars.revenue);
   }
 
-  function start () {
-    whenWrapperReady(() => boot());
+  function setupObserver() {
+    const wrapper = document.getElementById('sf-campaign-wrapper');
+    if (!wrapper) return;
+
+    boot();  // Run immediately upon wrapper detection
+
+    const observer = new MutationObserver(() => {
+      observer.disconnect();  // Avoid loop
+      boot();                 // Re-run on changes
+      observer.observe(wrapper, { childList: true, subtree: true });
+    });
+
+    observer.observe(wrapper, { childList: true, subtree: true });
+  }
+
+  function init() {
+    if (!location.pathname.includes('/portal')) return;
+
+    new MutationObserver((_, obs) => {
+      if (document.getElementById('sf-campaign-wrapper')) {
+        obs.disconnect();
+        setupObserver();
+      }
+    }).observe(document.body, { childList: true, subtree: true });
   }
 
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', start, { once: true });
+    document.addEventListener('DOMContentLoaded', init);
   } else {
-    start();
+    init();
   }
 })();
