@@ -113,7 +113,12 @@
     console.log('📝 Progress bar text element:', txt);
     
     if (!fill || !txt) {
-      console.log('❌ Missing progress bar elements, skipping update');
+      console.log('❌ Missing progress bar elements, checking for alternatives...');
+      const allDivs = section.querySelectorAll('div');
+      console.log('📋 All divs in section:', allDivs.length);
+      allDivs.forEach((div, index) => {
+        console.log(`📋 Div ${index + 1}:`, div.className, div.textContent?.substring(0, 50));
+      });
       return;
     }
 
@@ -147,11 +152,23 @@
     const tierSections = wrapper.querySelectorAll('.tier-section');
     console.log('🔍 Found tier sections:', tierSections.length);
     
+    if (tierSections.length === 0) {
+      console.log('❌ No tier sections found! Checking for alternative selectors...');
+      const allSections = wrapper.querySelectorAll('section');
+      console.log('📋 All sections found:', allSections.length);
+      allSections.forEach((sec, index) => {
+        console.log(`📋 Section ${index + 1}:`, sec.className, sec.dataset);
+      });
+      return;
+    }
+    
     tierSections.forEach((sec, index) => {
       const sectionTier = sec.dataset.tier;
       const on = sectionTier === tier;
       console.log(`📋 Section ${index + 1}: tier="${sectionTier}", showing: ${on}`);
+      console.log(`📋 Section ${index + 1} before:`, sec.style.display);
       sec.style.setProperty('display', on ? 'block' : 'none', 'important');
+      console.log(`📋 Section ${index + 1} after:`, sec.style.display);
     });
     
     const targetSection = wrapper.querySelector(`[data-tier="${tier}"]`);
