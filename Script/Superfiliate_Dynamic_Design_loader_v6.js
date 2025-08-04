@@ -2,7 +2,7 @@
   'use strict';
 
   /* tunables — adjust if needed */
-  const INIT_DELAY     = 600;   // ms after first paint
+  const INIT_DELAY     = 100;   // ms after first paint (reduced for faster response)
   const MUTATION_DELAY = 150;   // ms debounce on DOM changes
 
   console.log('🚀 SF Portal Design Loader v6 starting...');
@@ -205,6 +205,12 @@
   /* kick‑off ------------------------------------------------- */
   function start () {
     console.log('🎬 Start function called');
+    
+    // Immediately hide all sections to prevent flash
+    console.log('⚡ Immediately hiding all sections to prevent flash...');
+    document.querySelectorAll('[data-tier]').forEach(s => {
+      s.style.display = 'none';
+    });
     
     whenWrapperReady(wrapper => {
       console.log('🎯 Wrapper ready, setting up initial boot...');
