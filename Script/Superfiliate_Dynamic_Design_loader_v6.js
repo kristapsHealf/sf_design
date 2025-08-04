@@ -2,7 +2,7 @@
   'use strict';
 
   /* tunables — adjust if needed */
-  const INIT_DELAY     = 100;   // ms after first paint (reduced for faster response)
+  const INIT_DELAY     = 0;     // ms after first paint (instant response)
   const MUTATION_DELAY = 150;   // ms debounce on DOM changes
 
   console.log('🚀 SF Portal Design Loader v6 starting...');
@@ -212,14 +212,20 @@
       s.style.display = 'none';
     });
     
+    // Try to run immediately if wrapper already exists
+    const immediateWrapper = document.getElementById('sf-campaign-wrapper');
+    if (immediateWrapper) {
+      console.log('⚡ Wrapper found immediately, running boot instantly!');
+      boot(immediateWrapper);
+      return;
+    }
+    
     whenWrapperReady(wrapper => {
-      console.log('🎯 Wrapper ready, setting up initial boot...');
+      console.log('🎯 Wrapper ready, running boot immediately...');
       
-      /* initial run */
-      setTimeout(() => {
-        console.log('⏰ Initial boot timeout triggered');
-        boot(wrapper);
-      }, INIT_DELAY);
+      /* initial run - instant */
+      console.log('⚡ Running boot immediately (no delay)');
+      boot(wrapper);
 
       /* re‑run when the builder mutates the DOM */
       // TEMPORARILY DISABLED - focusing on basic functionality first
