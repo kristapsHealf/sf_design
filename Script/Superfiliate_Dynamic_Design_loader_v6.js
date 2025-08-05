@@ -9,30 +9,56 @@
     return;
   }
 
-  // Better SPA protection - use a more specific flag per page
+  // Better SPA protection - track navigation state more robustly
   const pageKey = location.pathname;
   const flagKey = `__sfTierLoaded_${pageKey.replace(/[^a-zA-Z0-9]/g, '_')}`;
-  
-  // Check if already loaded for this specific page
-  if (window[flagKey]) {
-    return;
-  }
-  
-  // Set the flag for this specific page
-  window[flagKey] = true;
-  
-  // Clean up old flags when navigating (keep only current page)
-  Object.keys(window).forEach(key => {
-    if (key.startsWith('__sfTierLoaded_') && key !== flagKey) {
-      delete window[key];
-    }
-  });
-
-  const targets = { rise: 500, radiate: 2500, empower: null };
   
   // Track if we're currently processing to prevent multiple simultaneous runs
   let isProcessing = false;
   let currentObserver = null;
+  let navigationHistory = new Set();
+  
+  // Initialize navigation tracking
+  if (!window.__sfNavigationTracker) {
+    window.__sfNavigationTracker = {
+      currentPage: pageKey,
+      visitedPages: new Set(),
+      lastProcessedPage: null
+    };
+  }
+  
+  const tracker = window.__sfNavigationTracker;
+  tracker.visitedPages.add(pageKey);
+  
+  // Check if we need to process this page
+  const shouldProcessPage = () => {
+    // Always process if this is a new page
+    if (!tracker.visitedPages.has(pageKey)) {
+      return true;
+    }
+    
+    // Process if we're returning to a page after navigating away
+    if (tracker.currentPage !== pageKey) {
+      return true;
+    }
+    
+    // Process if this page hasn't been processed yet
+    if (tracker.lastProcessedPage !== pageKey) {
+      return true;
+    }
+    
+    return false;
+  };
+  
+  if (!shouldProcessPage()) {
+    return;
+  }
+  
+  // Update tracker state
+  tracker.currentPage = pageKey;
+  tracker.lastProcessedPage = pageKey;
+  
+  const targets = { rise: 500, radiate: 2500, empower: null };
   
   /* wait until React renders the wrapper */
   function whenWrapperReady (cb) {
@@ -182,36 +208,78 @@
     });
   }
 
-  // Listen for navigation events (for SPA)
+  // Enhanced navigation detection for complex SPA routing
   let lastPathname = location.pathname;
+  let navigationTimeout = null;
+  
+  // Function to handle navigation changes
+  function handleNavigationChange(newPathname) {
+    if (newPathname === lastPathname) {
+      return;
+    }
+    
+    // Clear any pending timeout
+    if (navigationTimeout) {
+      clearTimeout(navigationTimeout);
+    }
+    
+    // Update tracker
+    tracker.currentPage = newPathname;
+    tracker.visitedPages.add(newPathname);
+    
+    // Reset processing flag for new page
+    isProcessing = false;
+    
+    // Clean up observer
+    if (currentObserver) {
+      currentObserver.disconnect();
+      currentObserver = null;
+    }
+    
+    // Update last pathname
+    lastPathname = newPathname;
+    
+    // If we're on a portal page, restart the process after a short delay
+    if (newPathname.includes('/portal')) {
+      navigationTimeout = setTimeout(() => {
+        // Check if we should process this page
+        if (shouldProcessPage()) {
+          tracker.lastProcessedPage = newPathname;
+          start();
+        }
+      }, 150); // Slightly longer delay to ensure DOM is ready
+    }
+  }
   
   // Check for pathname changes periodically (for SPA navigation)
   setInterval(() => {
-    if (location.pathname !== lastPathname) {
-      lastPathname = location.pathname;
-      
-      // Reset processing flag for new page
-      isProcessing = false;
-      
-      // Clean up observer
-      if (currentObserver) {
-        currentObserver.disconnect();
-        currentObserver = null;
-      }
-      
-      // If we're on a portal page, restart the process
-      if (location.pathname.includes('/portal')) {
-        const newPageKey = location.pathname;
-        const newFlagKey = `__sfTierLoaded_${newPageKey.replace(/[^a-zA-Z0-9]/g, '_')}`;
-        
-        // Only restart if not already loaded for this page
-        if (!window[newFlagKey]) {
-          window[newFlagKey] = true;
-          start();
-        }
-      }
-    }
+    handleNavigationChange(location.pathname);
   }, 100); // Check every 100ms
+  
+  // Also listen for popstate events (browser back/forward)
+  window.addEventListener('popstate', () => {
+    setTimeout(() => {
+      handleNavigationChange(location.pathname);
+    }, 50);
+  });
+  
+  // Listen for pushstate/replacestate (programmatic navigation)
+  const originalPushState = history.pushState;
+  const originalReplaceState = history.replaceState;
+  
+  history.pushState = function(...args) {
+    originalPushState.apply(this, args);
+    setTimeout(() => {
+      handleNavigationChange(location.pathname);
+    }, 50);
+  };
+  
+  history.replaceState = function(...args) {
+    originalReplaceState.apply(this, args);
+    setTimeout(() => {
+      handleNavigationChange(location.pathname);
+    }, 50);
+  };
   
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
