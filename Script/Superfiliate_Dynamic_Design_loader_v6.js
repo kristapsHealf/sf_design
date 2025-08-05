@@ -2,7 +2,7 @@
   'use strict';
 
   /* tunables — adjust if needed */
-  const INIT_DELAY     = 100;   // ms after first paint
+  const INIT_DELAY     = 200;   // ms after first paint
   const MUTATION_DELAY = 80;   // ms debounce on DOM changes
 
   console.log('🚀 SF Portal Design Loader v6 starting...');
