@@ -3,12 +3,37 @@
 
   /* tunables — adjust if needed */
   const INIT_DELAY     = 320;   // ms after first paint
-  if (!location.pathname.includes('/portal') || window.__sfTierLoaded) {
+  
+  // Check if we're on a portal page
+  if (!location.pathname.includes('/portal')) {
+    return;
+  }
+
+  // Better SPA protection - use a more specific flag per page
+  const pageKey = location.pathname;
+  const flagKey = `__sfTierLoaded_${pageKey.replace(/[^a-zA-Z0-9]/g, '_')}`;
+  
+  // Check if already loaded for this specific page
+  if (window[flagKey]) {
     return;
   }
   
-  window.__sfTierLoaded = true;
+  // Set the flag for this specific page
+  window[flagKey] = true;
+  
+  // Clean up old flags when navigating (keep only current page)
+  Object.keys(window).forEach(key => {
+    if (key.startsWith('__sfTierLoaded_') && key !== flagKey) {
+      delete window[key];
+    }
+  });
+
   const targets = { rise: 500, radiate: 2500, empower: null };
+  
+  // Track if we're currently processing to prevent multiple simultaneous runs
+  let isProcessing = false;
+  let currentObserver = null;
+  
   /* wait until React renders the wrapper */
   function whenWrapperReady (cb) {
     const w = document.getElementById('sf-campaign-wrapper');
@@ -16,13 +41,22 @@
       cb(w); 
       return; 
     }
-    new MutationObserver((_, o) => {
+    
+    // Clean up any existing observer
+    if (currentObserver) {
+      currentObserver.disconnect();
+    }
+    
+    currentObserver = new MutationObserver((_, o) => {
       const w2 = document.getElementById('sf-campaign-wrapper');
       if (w2) { 
         o.disconnect(); 
+        currentObserver = null;
         cb(w2); 
       }
-    }).observe(document.body, { childList: true, subtree: true });
+    });
+    
+    currentObserver.observe(document.body, { childList: true, subtree: true });
   }
 
   /* helpers -------------------------------------------------- */
@@ -70,9 +104,6 @@
     
     
     if (!fill || !txt) {
-      const allDivs = section.querySelectorAll('div');
-      allDivs.forEach((div, index) => {
-      });
       return;
     }
 
@@ -95,15 +126,14 @@
   }
 
   function showTier (tier, wrapper) {
-   
-  
+    if (isProcessing) {
+      return; // Prevent multiple simultaneous executions
+    }
+    
+    isProcessing = true;
 
     // Find all sections with data-tier attribute (more robust)
     const allTierSections = document.querySelectorAll('[data-tier]');
-    
-    // Log all sections for debugging
-    allTierSections.forEach((s, i) => {
-    });
     
     // First, hide ALL tier sections
     allTierSections.forEach(s => {
@@ -117,29 +147,29 @@
       
       // Force it to be visible with !important
       targetSection.style.setProperty('display', 'block', 'important');
-      
-      // Additional debugging
-      setTimeout(() => {
-        const computedStyle = window.getComputedStyle(targetSection);
-      }, 100);
-    } else {
     }
     
     updateBar(targetSection, tier);
+    isProcessing = false;
   }
 
   /* main work ------------------------------------------------ */
   function boot (wrapper) {
+    if (isProcessing) {
+      return; // Prevent multiple simultaneous executions
+    }
     
     const vars = readVars();
     const tier = pickTier(vars);
     
     showTier(tier, wrapper);
-    
   }
 
   /* kick‑off ------------------------------------------------- */
   function start () {
+    if (isProcessing) {
+      return; // Prevent multiple simultaneous executions
+    }
     
     whenWrapperReady(wrapper => {
       
@@ -149,54 +179,39 @@
         wrapper.style.visibility = 'visible';         // reveal after tier set
         boot(wrapper);
       }, INIT_DELAY);
-
-      /* re‑run when the builder mutates the DOM */
-      // TEMPORARILY DISABLED - focusing on basic functionality first
-      
-      /*
-      let pending = false;
-      let lastTier = null;
-      console.log('👀 Setting up MutationObserver for DOM changes...');
-      
-      new MutationObserver((mutations) => {
-        if (pending) {
-          console.log('⏳ Mutation already pending, skipping...');
-          return;
-        }
-        
-        // Check if this mutation was caused by our own script
-        const isOwnMutation = mutations.some(mutation => 
-          mutation.type === 'attributes' && 
-          (mutation.attributeName === 'style' || mutation.attributeName === 'data-tier')
-        );
-        
-        if (isOwnMutation) {
-          console.log('🚫 Ignoring own DOM mutation to prevent infinite loop');
-          return;
-        }
-        
-        console.log('🔄 DOM mutation detected:', mutations.length, 'changes');
-        pending = true;
-        requestAnimationFrame(() => {
-          pending = false;
-          setTimeout(() => {
-            console.log('⏰ Mutation-triggered boot timeout triggered');
-            const currentTier = pickTier(readVars());
-            if (currentTier !== lastTier) {
-              console.log('🔄 Tier changed from', lastTier, 'to', currentTier);
-              lastTier = currentTier;
-              boot(wrapper);
-            } else {
-              console.log('⏭️ Tier unchanged, skipping boot');
-            }
-          }, MUTATION_DELAY);
-        });
-      }).observe(wrapper, { childList: true, subtree: true });
-      */
-      
     });
   }
 
+  // Listen for navigation events (for SPA)
+  let lastPathname = location.pathname;
+  
+  // Check for pathname changes periodically (for SPA navigation)
+  setInterval(() => {
+    if (location.pathname !== lastPathname) {
+      lastPathname = location.pathname;
+      
+      // Reset processing flag for new page
+      isProcessing = false;
+      
+      // Clean up observer
+      if (currentObserver) {
+        currentObserver.disconnect();
+        currentObserver = null;
+      }
+      
+      // If we're on a portal page, restart the process
+      if (location.pathname.includes('/portal')) {
+        const newPageKey = location.pathname;
+        const newFlagKey = `__sfTierLoaded_${newPageKey.replace(/[^a-zA-Z0-9]/g, '_')}`;
+        
+        // Only restart if not already loaded for this page
+        if (!window[newFlagKey]) {
+          window[newFlagKey] = true;
+          start();
+        }
+      }
+    }
+  }, 100); // Check every 100ms
   
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
