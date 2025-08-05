@@ -2,7 +2,7 @@
   'use strict';
 
   /* tunables — adjust if needed */
-  const INIT_DELAY     = 215;   // ms after first paint
+  const INIT_DELAY     = 265;   // ms after first paint
   if (!location.pathname.includes('/portal') || window.__sfTierLoaded) {
     return;
   }
@@ -50,7 +50,6 @@
       return 'rise';
     }
     
-    console.log('💰 Checking revenue-based tier selection...');
     if (revenue >= 2500) {
       return 'empower';
     }
@@ -73,7 +72,6 @@
     if (!fill || !txt) {
       const allDivs = section.querySelectorAll('div');
       allDivs.forEach((div, index) => {
-        console.log(`📋 Div ${index + 1}:`, div.className, div.textContent?.substring(0, 50));
       });
       return;
     }
@@ -99,12 +97,12 @@
   function showTier (tier, wrapper) {
    
   
+
     // Find all sections with data-tier attribute (more robust)
     const allTierSections = document.querySelectorAll('[data-tier]');
     
     // Log all sections for debugging
     allTierSections.forEach((s, i) => {
-      console.log(`📋 Section ${i + 1}: data-tier="${s.dataset.tier}", class="${s.className}"`);
     });
     
     // First, hide ALL tier sections
@@ -125,7 +123,6 @@
         const computedStyle = window.getComputedStyle(targetSection);
       }, 100);
     } else {
-      console.log('❌ Target section not found for tier:', tier);
     }
     
     updateBar(targetSection, tier);
@@ -208,4 +205,4 @@
   } else {
     start();
   }
-  })();
+})();
