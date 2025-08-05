@@ -2,7 +2,7 @@
   'use strict';
 
   /* tunables — adjust if needed */
-  const INIT_DELAY     = 280;   // ms after first paint
+  const INIT_DELAY     = 350;   // ms after first paint
   if (!location.pathname.includes('/portal') || window.__sfTierLoaded) {
     return;
   }
