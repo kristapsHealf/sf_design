@@ -373,8 +373,8 @@
     
     isProcessing = true;
 
-    // Find all sections with data-tier attribute (more robust)
-    const allTierSections = document.querySelectorAll('[data-tier]');
+    // Find all sections with data-tier attribute scoped to wrapper
+    const allTierSections = wrapper.querySelectorAll('[data-tier]');
     
     // First, hide ALL tier sections
     allTierSections.forEach(s => {
@@ -382,7 +382,7 @@
     });
     
     // Then show only the target tier
-    const targetSection = document.querySelector(`[data-tier="${tier}"]`);
+    const targetSection = wrapper.querySelector(`[data-tier="${tier}"]`);
     if (targetSection) {
       targetSection.style.display = 'block';
       
@@ -408,12 +408,12 @@
     // Styles + ensure video button layers
     injectHXStyles();
 
-    const activeSection = document.querySelector(`[data-tier="${tier}"]`);
+    const activeSection = wrapper.querySelector(`[data-tier="${tier}"]`);
     if (activeSection) {
       normalizeHxButtonInSection(activeSection);
       if (hxObserver) { try { hxObserver.disconnect(); } catch(_){} hxObserver = null; }
       hxObserver = new MutationObserver(() => {
-        normalizeHxButtonInSection(document.querySelector(`[data-tier="${tier}"]`));
+        normalizeHxButtonInSection(wrapper.querySelector(`[data-tier="${tier}"]`));
       });
       try { hxObserver.observe(activeSection, { childList:true, subtree:true }); } catch(_){}
     }
