@@ -2,17 +2,17 @@
   'use strict';
 
   /* ========= CONFIG ========= */
-  const INIT_DELAY        = 320;
+  const INIT_DELAY        = 1000;
   const STYLE_ID          = 'hx25-button-tracker-v1';
   const BTN_SELECTOR      = '.hx25-button, .hx25-btn, [data-hx25-btn], #hx25-button';
   const VIDEO_SRC         = 'https://i.imgur.com/1zJtkCw.mp4';
   const LOGO_SRC          = 'https://cdn.shopify.com/s/files/1/0405/7291/1765/files/Group_10879850.svg?v=1754920813';
   const LABEL_TEXT        = 'Generate your unique referral link';
-  const DEFAULT_LINK      = 'https://www.eventbrite.com/e/healf-experience-tickets-1545147591039?aff=482504953';
+  const DEFAULT_LINK      = 'https://www.eventbrite.com/e/healf-experience-tickets-1545147591039?';
   const DISABLE_FLAG      = '__HX25_DISABLE__';
   const TARGETS           = { rise: 500, radiate: 2500, empower: null };
-  const DEBUG             = true; // Force enable extensive logging for testing
-  const VERBOSE           = true; // Extra detailed logging for testing
+  const DEBUG             = false; // Force enable extensive logging
+  const VERBOSE           = false; // Extra detailed logging
   
   // Tracker config
   const TRACKER_CIRCLES   = 3; // Number of referral circles
@@ -24,47 +24,7 @@
   const err  = (...a) => { if (DEBUG) try { console.error('[HX25]', ...a); } catch(_){} };
   const verbose = (...a) => { if (VERBOSE) try { console.log('[HX25-VERBOSE]', ...a); } catch(_){} };
 
-  if (!location.pathname.includes('/portal')) return;
   const isDisabled = () => (typeof window !== 'undefined' && window[DISABLE_FLAG] === true);
-
-  // Timing and safety constants
-  const MAX_WAIT_TIME = 10000; // 10 seconds max wait for elements
-  const CHECK_INTERVAL = 100; // Check every 100ms
-  
-  // Wait for critical elements to be available
-  function waitForElements() {
-    return new Promise((resolve, reject) => {
-      const startTime = Date.now();
-      
-      function checkElements() {
-        const wrapper = document.getElementById('sf-campaign-wrapper');
-        const nameEl = document.getElementById('sf-campaign-name');
-        const revEl = document.getElementById('sf-revenue');
-        const codeEl = document.getElementById('sf-code');
-        
-        const elapsed = Date.now() - startTime;
-        
-        verbose(`⏳ Checking elements at ${elapsed}ms...`);
-        verbose(`- wrapper: ${!!wrapper}, name: ${!!nameEl}, revenue: ${!!revEl}, code: ${!!codeEl}`);
-        
-        if (wrapper && nameEl && revEl) { // codeEl is optional
-          log('✅ Critical elements found!');
-          resolve({ wrapper, nameEl, revEl, codeEl });
-          return;
-        }
-        
-        if (elapsed > MAX_WAIT_TIME) {
-          log('❌ Timeout waiting for elements');
-          reject(new Error('Timeout waiting for elements'));
-          return;
-        }
-        
-        setTimeout(checkElements, CHECK_INTERVAL);
-      }
-      
-      checkElements();
-    });
-  }
 
   /* ========= STYLE ========= */
   function injectStyles() {
@@ -856,33 +816,11 @@
 
   function whenWrapperReady(cb){
     const w = document.getElementById('sf-campaign-wrapper');
-    if (w) { 
-      log('✅ Wrapper immediately available');
-      cb(w); 
-      return; 
-    }
-    
-    log('⏳ Waiting for wrapper to appear...');
+    if (w) { cb(w); return; }
     if (currentObserver) currentObserver.disconnect();
-    
-    // Timeout safety for wrapper appearance
-    const timeoutId = setTimeout(() => {
-      warn('❌ Timeout waiting for wrapper to appear');
-      if (currentObserver) {
-        currentObserver.disconnect();
-        currentObserver = null;
-      }
-    }, MAX_WAIT_TIME);
-    
     currentObserver = new MutationObserver((_, o) => {
       const w2 = document.getElementById('sf-campaign-wrapper');
-      if (w2) { 
-        clearTimeout(timeoutId);
-        o.disconnect(); 
-        currentObserver = null; 
-        log('✅ Wrapper appeared via mutation observer');
-        cb(w2); 
-      }
+      if (w2) { o.disconnect(); currentObserver = null; cb(w2); }
     });
     currentObserver.observe(document.body, { childList:true, subtree:true });
   }
@@ -903,90 +841,74 @@
     isProcessing = false;
   }
 
-  async function boot(wrapper){
+  function boot(wrapper){
     log('🚀 Starting boot process...');
     if (isProcessing) {
       warn('⚠️ Already processing, skipping boot');
       return;
     }
-    isProcessing = true;
     
-    try {
-      // Wait for all elements to be ready
-      log('🔍 Waiting for template elements...');
-      const { wrapper: readyWrapper, nameEl, revEl, codeEl } = await waitForElements();
-      
-      log('🎯 Elements ready, starting main logic...');
-      
-      // Use the confirmed ready wrapper
-      wrapper = readyWrapper;
-      
-      const vars = readVars();
-      log('📊 Variables read:', vars);
-      const tier = pickTier(vars);
-      log('🎯 Selected tier:', tier);
-      
-      // Inject styles FIRST before any DOM manipulation
-      injectStyles();
-      
-      // Call stats API on page load
-      const code = getCode(wrapper);
-      if (code) {
-        callStatsAPI(code);
-      }
-      
-      showTier(tier, wrapper);
-
-      const active = wrapper.querySelector(`[data-tier="${tier}"]`) || wrapper.querySelector('[data-tier]');
-      log('🎪 Active section found:', active?.getAttribute('data-tier') || 'none');
-      
-      if (active) {
-        log('🔧 Setting up button for active section...');
-        const result = ensureButtonBlockBelow(active);
-        log('🎯 Button setup result:', result ? 'success' : 'failed');
-
-        if (hxObserver) { 
-          log('🔄 Disconnecting existing observer...');
-          try { hxObserver.disconnect(); } catch(_){} 
-          hxObserver = null; 
-        }
-        
-        log('👀 Setting up mutation observer...');
-        hxObserver = new MutationObserver(() => {
-          verbose('🔄 Mutation detected, checking if button needs re-ensuring...');
-          const sec = wrapper.querySelector(`[data-tier="${tier}"]`) || wrapper.querySelector('[data-tier]');
-          if (sec) {
-            // Only re-ensure if button or tracker doesn't exist
-            const existingBtn = sec.nextElementSibling?.querySelector('.hx25-button');
-            const existingTracker = sec.nextElementSibling?.querySelector('.hx25-tracker');
-            if (!existingBtn || !existingTracker) {
-              log('🔧 Button or tracker missing, re-ensuring...');
-              ensureButtonBlockBelow(sec);
-            } else {
-              verbose('✅ Button and tracker still exist, skipping re-ensure');
-            }
-          }
-        });
-        try { 
-          hxObserver.observe(wrapper, { childList:true, subtree:true }); 
-          log('✅ Mutation observer active');
-        } catch(e){
-          err('❌ Failed to start mutation observer:', e);
-        }
-      } else {
-        err('❌ No active section found!');
-      }
-      
-      log('✅ Boot process complete');
-      
-    } catch (error) {
-      err('❌ Boot process failed:', error);
-    } finally {
-      isProcessing = false;
+    const vars = readVars();
+    log('📊 Variables read:', vars);
+    const tier = pickTier(vars);
+    log('🎯 Selected tier:', tier);
+    
+    // Inject styles FIRST before any DOM manipulation
+    injectStyles();
+    
+    // Call stats API on page load
+    const code = getCode(wrapper);
+    if (code) {
+      callStatsAPI(code);
     }
+    
+    showTier(tier, wrapper);
+
+    const active = wrapper.querySelector(`[data-tier="${tier}"]`) || wrapper.querySelector('[data-tier]');
+    log('🎪 Active section found:', active?.getAttribute('data-tier') || 'none');
+    
+    if (active) {
+      log('🔧 Setting up button for active section...');
+      const result = ensureButtonBlockBelow(active);
+      log('🎯 Button setup result:', result ? 'success' : 'failed');
+
+      if (hxObserver) { 
+        log('🔄 Disconnecting existing observer...');
+        try { hxObserver.disconnect(); } catch(_){} 
+        hxObserver = null; 
+      }
+      
+      log('👀 Setting up mutation observer...');
+      hxObserver = new MutationObserver(() => {
+        verbose('🔄 Mutation detected, checking if button needs re-ensuring...');
+        const sec = wrapper.querySelector(`[data-tier="${tier}"]`) || wrapper.querySelector('[data-tier]');
+        if (sec) {
+          // Only re-ensure if button or tracker doesn't exist
+          const existingBtn = sec.nextElementSibling?.querySelector('.hx25-button');
+          const existingTracker = sec.nextElementSibling?.querySelector('.hx25-tracker');
+          if (!existingBtn || !existingTracker) {
+            log('🔧 Button or tracker missing, re-ensuring...');
+            ensureButtonBlockBelow(sec);
+          } else {
+            verbose('✅ Button and tracker still exist, skipping re-ensure');
+          }
+        }
+      });
+      try { 
+        hxObserver.observe(wrapper, { childList:true, subtree:true }); 
+        log('✅ Mutation observer active');
+      } catch(e){
+        err('❌ Failed to start mutation observer:', e);
+      }
+    } else {
+      err('❌ No active section found!');
+    }
+    
+    log('✅ Boot process complete');
   }
 
   function start(){
+    if (!location.pathname.includes('/portal')) return;
     log('🌟 START called');
     if (isProcessing) {
       warn('⚠️ Already processing, aborting start');
@@ -1001,13 +923,13 @@
     // Inject styles early to ensure they're available
     injectStyles();
     
-    whenWrapperReady(async (wrapper) => {
+    whenWrapperReady(wrapper => {
       log('✅ Wrapper ready, hiding and starting boot sequence...');
       wrapper.style.visibility = 'hidden';
-      setTimeout(async () => {
+      setTimeout(() => {
         log('👁️ Making wrapper visible and booting...');
         wrapper.style.visibility = 'visible';
-        await boot(wrapper);
+        boot(wrapper);
       }, INIT_DELAY);
     });
   }
