@@ -3,8 +3,37 @@
 
   const DEFAULT_LINK = 'https://www.eventbrite.com/e/healf-experience-tickets-1545147591039?aff=482504953';
   const STATS_API_URL = 'https://aiwellbeing.app.n8n.cloud/webhook/aff/stats';
+  const INIT_DELAY = 320; // ms after first paint
 
   if (!location.pathname.includes('/portal')) return;
+
+  // SPA Navigation State Management
+  const pageKey = location.pathname;
+  let isProcessing = false;
+  let currentObserver = null;
+  
+  if (!window.__sfNavigationTracker) {
+    window.__sfNavigationTracker = {
+      currentPage: pageKey,
+      visitedPages: new Set(),
+      lastProcessedPage: null
+    };
+  }
+  
+  const tracker = window.__sfNavigationTracker;
+  tracker.visitedPages.add(pageKey);
+  
+  const shouldProcessPage = () => {
+    if (!tracker.visitedPages.has(pageKey)) return true;
+    if (tracker.currentPage !== pageKey) return true;
+    if (tracker.lastProcessedPage !== pageKey) return true;
+    return false;
+  };
+  
+  if (!shouldProcessPage()) return;
+  
+  tracker.currentPage = pageKey;
+  tracker.lastProcessedPage = pageKey;
 
   function detectTier() {
     const nameEl = document.getElementById('sf-campaign-name');
@@ -119,15 +148,41 @@
       .catch(err => console.warn('API failed:', err));
   }
 
-  function init() {
-    const wrapper = document.getElementById('sf-campaign-wrapper');
-    if (!wrapper) return;
+  function whenWrapperReady(cb) {
+    const w = document.getElementById('sf-campaign-wrapper');
+    if (w) { 
+      cb(w); 
+      return; 
+    }
+    
+    if (currentObserver) {
+      currentObserver.disconnect();
+    }
+    
+    currentObserver = new MutationObserver((_, o) => {
+      const w2 = document.getElementById('sf-campaign-wrapper');
+      if (w2) { 
+        o.disconnect(); 
+        currentObserver = null;
+        cb(w2); 
+      }
+    });
+    
+    currentObserver.observe(document.body, { childList: true, subtree: true });
+  }
+
+  function boot(wrapper) {
+    if (isProcessing) return;
+    isProcessing = true;
 
     // Show correct tier
     const tier = detectTier();
     const allSections = wrapper.querySelectorAll('[data-tier]');
     allSections.forEach(section => {
       section.style.display = section.dataset.tier === tier ? 'block' : 'none';
+      if (section.dataset.tier === tier) {
+        section.style.setProperty('display', 'block', 'important');
+      }
     });
 
     // Update progress bar
@@ -142,6 +197,20 @@
       // Update tracker
       updateTracker();
     }
+    
+    isProcessing = false;
+  }
+
+  function start() {
+    if (isProcessing) return;
+    
+    whenWrapperReady(wrapper => {
+      wrapper.style.visibility = 'hidden'; // Prevent FOUC
+      setTimeout(() => {
+        wrapper.style.visibility = 'visible';
+        boot(wrapper);
+      }, INIT_DELAY);
+    });
   }
 
   // Add pulse keyframes if not already added
@@ -152,10 +221,70 @@
     document.head.appendChild(style);
   }
 
+  // SPA Navigation Handling
+  let lastPathname = location.pathname;
+  let navigationTimeout = null;
+  
+  function handleNavigationChange(newPathname) {
+    if (newPathname === lastPathname) return;
+    
+    if (navigationTimeout) {
+      clearTimeout(navigationTimeout);
+    }
+    
+    tracker.currentPage = newPathname;
+    tracker.visitedPages.add(newPathname);
+    isProcessing = false;
+    
+    if (currentObserver) {
+      currentObserver.disconnect();
+      currentObserver = null;
+    }
+    
+    lastPathname = newPathname;
+    
+    if (newPathname.includes('/portal')) {
+      navigationTimeout = setTimeout(() => {
+        if (shouldProcessPage()) {
+          tracker.lastProcessedPage = newPathname;
+          start();
+        }
+      }, 150);
+    }
+  }
+  
+  // Navigation listeners
+  setInterval(() => {
+    handleNavigationChange(location.pathname);
+  }, 100);
+  
+  window.addEventListener('popstate', () => {
+    setTimeout(() => {
+      handleNavigationChange(location.pathname);
+    }, 50);
+  });
+  
+  const originalPushState = history.pushState;
+  const originalReplaceState = history.replaceState;
+  
+  history.pushState = function(...args) {
+    originalPushState.apply(this, args);
+    setTimeout(() => {
+      handleNavigationChange(location.pathname);
+    }, 50);
+  };
+  
+  history.replaceState = function(...args) {
+    originalReplaceState.apply(this, args);
+    setTimeout(() => {
+      handleNavigationChange(location.pathname);
+    }, 50);
+  };
+
   // Start when ready
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
+    document.addEventListener('DOMContentLoaded', start, { once: true });
   } else {
-    init();
+    start();
   }
 })();
