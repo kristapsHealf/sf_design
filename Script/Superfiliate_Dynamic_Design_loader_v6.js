@@ -462,7 +462,13 @@
     verbose('🔗 Final href before email:', href);
 
     const code = getCode(host.closest('#sf-campaign-wrapper')) || 'DEFAULT_CODE';
-    href = withQueryParam(href, 'aff', code);
+    
+    // Replace existing aff parameter or add new one
+    if (href.includes('aff=')) {
+      href = href.replace(/([?&])aff=[^&]*/, `$1aff=${encodeURIComponent(code)}`);
+    } else {
+      href = withQueryParam(href, 'aff', code);
+    }
     
     log('🎯 Code found:', code);
     log('🔗 Final href with code:', href);
@@ -772,19 +778,25 @@
     }
 
     log('🔍 Looking for existing button...');
-    let btn = host.querySelector(BTN_SELECTOR) || section.querySelector(BTN_SELECTOR);
-    if (btn && btn.parentElement !== host) {
-      log('📦 Moving existing button to host...');
-      host.appendChild(btn);
-    }
-    if (!btn){
-      log('🆕 Creating new button element...');
+    // Remove any existing buttons from template to avoid conflicts
+    const existingBtns = section.querySelectorAll('.hx25-button');
+    existingBtns.forEach(btn => {
+      if (btn.parentElement !== host) {
+        log('🗑️ Removing template button to avoid conflicts');
+        btn.remove();
+      }
+    });
+    
+    // Always create a fresh button in the proper host
+    let btn = host.querySelector('.hx25-button');
+    if (!btn) {
+      log('🆕 Creating new button element in proper container...');
       btn = document.createElement('button');
       btn.id = 'hx25-button';
       host.appendChild(btn);
-      log('✅ New button created');
+      log('✅ New button created in host container');
     } else {
-      log('✅ Using existing button:', btn.id || btn.className);
+      log('✅ Using existing button in host:', btn.id || btn.className);
     }
 
     log('🏷️ Adding button classes and attributes...');
@@ -804,6 +816,14 @@
       log('🎯 Adding referral tracker below button...');
       tracker = createTracker();
       host.appendChild(tracker);
+      
+      // Call stats API after tracker is created
+      const wrapper = section.closest('#sf-campaign-wrapper');
+      const code = getCode(wrapper);
+      if (code) {
+        log('📊 Calling stats API now that tracker exists...');
+        callStatsAPI(code);
+      }
     } else {
       verbose('✅ Tracker already exists');
     }
@@ -847,7 +867,13 @@
     if (target) {
       target.style.display = 'block';
       target.style.setProperty('display','block','important');
-      log('✅ Showing section:', tier, 'display:', target.style.display);
+      target.style.visibility = 'visible';
+      target.style.setProperty('visibility','visible','important');
+      log('✅ Showing section:', tier, 'display:', target.style.display, 'visibility:', target.style.visibility);
+      
+      // Also ensure wrapper is visible
+      wrapper.style.visibility = 'visible';
+      wrapper.style.setProperty('visibility','visible','important');
     } else {
       warn('❌ No target section found for tier:', tier);
       all.forEach(s => s.style.removeProperty('display'));
@@ -871,12 +897,6 @@
     
     // Inject styles FIRST before any DOM manipulation
     injectStyles();
-    
-    // Call stats API on page load
-    const code = getCode(wrapper);
-    if (code) {
-      callStatsAPI(code);
-    }
     
     showTier(tier, wrapper);
 
