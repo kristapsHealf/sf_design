@@ -1,17 +1,24 @@
-(function() {
+(function () {
   'use strict';
 
-  const DEFAULT_LINK = 'https://www.eventbrite.com/e/healf-experience-tickets-1545147591039?aff=482504953';
-  const STATS_API_URL = 'https://aiwellbeing.app.n8n.cloud/webhook/aff/stats';
-  const INIT_DELAY = 320; // ms after first paint
+  /* tunables — adjust if needed */
+  const INIT_DELAY     = 320;   // ms after first paint
+  
+  // Check if we're on a portal page
+  if (!location.pathname.includes('/portal')) {
+    return;
+  }
 
-  if (!location.pathname.includes('/portal')) return;
-
-  // SPA Navigation State Management
+  // Better SPA protection - track navigation state more robustly
   const pageKey = location.pathname;
+  const flagKey = `__sfTierLoaded_${pageKey.replace(/[^a-zA-Z0-9]/g, '_')}`;
+  
+  // Track if we're currently processing to prevent multiple simultaneous runs
   let isProcessing = false;
   let currentObserver = null;
+  let navigationHistory = new Set();
   
+  // Initialize navigation tracking
   if (!window.__sfNavigationTracker) {
     window.__sfNavigationTracker = {
       currentPage: pageKey,
@@ -23,138 +30,45 @@
   const tracker = window.__sfNavigationTracker;
   tracker.visitedPages.add(pageKey);
   
+  // Check if we need to process this page
   const shouldProcessPage = () => {
-    if (!tracker.visitedPages.has(pageKey)) return true;
-    if (tracker.currentPage !== pageKey) return true;
-    if (tracker.lastProcessedPage !== pageKey) return true;
+    // Always process if this is a new page
+    if (!tracker.visitedPages.has(pageKey)) {
+      return true;
+    }
+    
+    // Process if we're returning to a page after navigating away
+    if (tracker.currentPage !== pageKey) {
+      return true;
+    }
+    
+    // Process if this page hasn't been processed yet
+    if (tracker.lastProcessedPage !== pageKey) {
+      return true;
+    }
+    
     return false;
   };
   
-  if (!shouldProcessPage()) return;
+  if (!shouldProcessPage()) {
+    return;
+  }
   
+  // Update tracker state
   tracker.currentPage = pageKey;
   tracker.lastProcessedPage = pageKey;
-
-  function detectTier() {
-    const nameEl = document.getElementById('sf-campaign-name');
-    const revEl = document.getElementById('sf-revenue');
-    const name = nameEl?.textContent?.toLowerCase() || '';
-    const revenue = parseFloat(revEl?.textContent?.replace(/[^0-9.]/g, '') || '0');
-    
-    if (name.includes('empower') || revenue >= 2500) return 'empower';
-    if (name.includes('radiate') || revenue >= 500) return 'radiate';
-    return 'rise';
-  }
-
-  function updateProgressBar(tier) {
-    const revEl = document.getElementById('sf-revenue');
-    const revenue = parseFloat(revEl?.textContent?.replace(/[^0-9.]/g, '') || '0');
-    const targets = { rise: 500, radiate: 2500, empower: null };
-    const target = targets[tier];
-    
-    const activeSection = document.querySelector(`[data-tier="${tier}"]`);
-    if (!activeSection) return;
-    
-    const fill = activeSection.querySelector('.progress-bar-fill');
-    const text = activeSection.querySelector('.progress-bar-text');
-    if (!fill || !text) return;
-    
-    if (target === null) {
-      fill.style.width = '100%';
-      text.textContent = `£${revenue} (max tier)`;
-    } else {
-      let pct = Math.min(100, (revenue / target) * 100);
-      if (revenue > 0 && pct < 10) pct = 10;
-      fill.style.width = pct + '%';
-      text.textContent = `£${revenue} / £${target}`;
-    }
-  }
-
-  function setupButton(button) {
-    if (button.__hxLinked) return;
-    
-    const code = document.getElementById('sf-code')?.textContent?.trim() || '';
-    let link = DEFAULT_LINK;
-    
-    if (code) {
-      link = link.includes('aff=') 
-        ? link.replace(/([?&])aff=[^&]*/, `$1aff=${encodeURIComponent(code)}`)
-        : `${link}&aff=${encodeURIComponent(code)}`;
-    }
-
-    button.addEventListener('click', async (e) => {
-      e.preventDefault();
-      try {
-        await navigator.clipboard.writeText(link);
-        const label = button.querySelector('.hx25-label');
-        if (label) {
-          const original = label.textContent;
-          label.textContent = '✓ Copied!';
-          setTimeout(() => label.textContent = original, 1500);
-        }
-      } catch (err) {
-        console.warn('Copy failed:', err);
-      }
-    });
-    
-    button.__hxLinked = true;
-  }
-
-  function updateTracker() {
-    const code = document.getElementById('sf-code')?.textContent?.trim();
-    if (!code) return;
-
-    const activeSection = document.querySelector('[data-tier]:not([style*="display: none"])');
-    if (!activeSection) return;
-    
-    const circles = activeSection.querySelectorAll('.hx25-circle');
-    const indicator = activeSection.querySelector('.hx25-unlock-indicator');
-    if (!circles.length || !indicator) return;
-
-    // Call API to get referral count
-    fetch(`${STATS_API_URL}?code=${encodeURIComponent(code)}`)
-      .then(res => res.json())
-      .then(data => {
-        const count = parseInt(data.reffCounts) || 0;
-        
-        // Update circles
-        circles.forEach((circle, i) => {
-          if (i < count) {
-            circle.style.background = 'rgba(255,255,255,.95)';
-            circle.style.borderColor = '#fff';
-            circle.style.transform = 'scale(1.1)';
-            circle.innerHTML = '<span style="font-size: 16px; color: #0b2f66;">✓</span>';
-          } else {
-            circle.style.background = 'rgba(255,255,255,.15)';
-            circle.style.borderColor = 'rgba(255,255,255,.3)';
-            circle.style.transform = 'scale(1)';
-            circle.innerHTML = '';
-          }
-        });
-        
-        // Update indicator
-        if (count >= 3) {
-          indicator.textContent = '🎟️ Free Ticket!';
-          indicator.style.background = 'rgba(255,255,255,.95)';
-          indicator.style.color = '#0b2f66';
-          indicator.style.animation = 'pulse 2s infinite';
-        } else {
-          indicator.textContent = `${3 - count} more for free ticket`;
-          indicator.style.background = 'rgba(255,255,255,.2)';
-          indicator.style.color = '#fff';
-          indicator.style.animation = 'none';
-        }
-      })
-      .catch(err => console.warn('API failed:', err));
-  }
-
-  function whenWrapperReady(cb) {
+  
+  const targets = { rise: 500, radiate: 2500, empower: null };
+  
+  /* wait until React renders the wrapper */
+  function whenWrapperReady (cb) {
     const w = document.getElementById('sf-campaign-wrapper');
     if (w) { 
       cb(w); 
       return; 
     }
     
+    // Clean up any existing observer
     if (currentObserver) {
       currentObserver.disconnect();
     }
@@ -171,99 +85,185 @@
     currentObserver.observe(document.body, { childList: true, subtree: true });
   }
 
-  function boot(wrapper) {
-    if (isProcessing) return;
-    isProcessing = true;
+  /* helpers -------------------------------------------------- */
+  function readVars () {
+    
+    const nameElement = document.getElementById('sf-campaign-name');
+    const revElement = document.getElementById('sf-revenue');
+    const rawName = (nameElement||{}).textContent?.trim() || '';
+    const rawRev  = (revElement||{}).textContent?.trim() || '';
+    const revenue = parseFloat(rawRev.replace(/[^0-9.]/g,'')) || 0;
 
-    // Show correct tier
-    const tier = detectTier();
-    const allSections = wrapper.querySelectorAll('[data-tier]');
-    allSections.forEach(section => {
-      section.style.display = section.dataset.tier === tier ? 'block' : 'none';
-      if (section.dataset.tier === tier) {
-        section.style.setProperty('display', 'block', 'important');
-      }
-    });
+    const result = { rawName, revenue };
+    return result;
+  }
 
-    // Update progress bar
-    updateProgressBar(tier);
-
-    // Setup button for active tier
-    const activeSection = wrapper.querySelector(`[data-tier="${tier}"]`);
-    if (activeSection) {
-      const button = activeSection.querySelector('.hx25-button');
-      if (button) setupButton(button);
-      
-      // Update tracker
-      updateTracker();
+  function pickTier ({ rawName, revenue }) {    
+    const n = rawName.toLowerCase();    
+    if (n.includes('empower') || n.includes('t3')) {
+      return 'empower';
+    }
+    if (n.includes('radiate') || n.includes('t2')) {
+      return 'radiate';
+    }
+    if (n.includes('rise')    || n.includes('t1')) {
+      return 'rise';
     }
     
+    if (revenue >= 2500) {
+      return 'empower';
+    }
+    if (revenue >=  500) {
+      return 'radiate';
+    }
+      return 'rise';
+  }
+
+  function updateBar (section, tier) {
+    
+    if (!section) {
+      return;
+    }
+    
+    const fill = section.querySelector('.progress-bar-fill');
+    const txt  = section.querySelector('.progress-bar-text');
+    
+    
+    if (!fill || !txt) {
+      return;
+    }
+
+    const revenue = parseFloat((document.getElementById('sf-revenue')||{}).textContent.replace(/[^0-9.]/g,'')) || 0;
+    const target  = targets[tier];
+    
+
+    if (target === null) {
+      fill.style.width = '100%';
+      txt.textContent  = `£${revenue} (max tier)`;
+    } else {
+      let pct = Math.min(100, revenue / target * 100);
+      if (revenue > 0 && pct < 10) pct = 10;
+      if (revenue === 0) pct = 0;
+      
+      fill.style.width = pct + '%';
+      txt.textContent  = `£${revenue} / £${target}`;
+    }
+    
+  }
+
+  function showTier (tier, wrapper) {
+    if (isProcessing) {
+      return; // Prevent multiple simultaneous executions
+    }
+    
+    isProcessing = true;
+
+    // Find all sections with data-tier attribute (more robust)
+    const allTierSections = document.querySelectorAll('[data-tier]');
+    
+    // First, hide ALL tier sections
+    allTierSections.forEach(s => {
+      s.style.display = 'none';
+    });
+    
+    // Then show only the target tier
+    const targetSection = document.querySelector(`[data-tier="${tier}"]`);
+    if (targetSection) {
+      targetSection.style.display = 'block';
+      
+      // Force it to be visible with !important
+      targetSection.style.setProperty('display', 'block', 'important');
+    }
+    
+    updateBar(targetSection, tier);
     isProcessing = false;
   }
 
-  function start() {
-    if (isProcessing) return;
+  /* main work ------------------------------------------------ */
+  function boot (wrapper) {
+    if (isProcessing) {
+      return; // Prevent multiple simultaneous executions
+    }
+    
+    const vars = readVars();
+    const tier = pickTier(vars);
+    
+    showTier(tier, wrapper);
+  }
+
+  /* kick‑off ------------------------------------------------- */
+  function start () {
+    if (isProcessing) {
+      return; // Prevent multiple simultaneous executions
+    }
     
     whenWrapperReady(wrapper => {
-      wrapper.style.visibility = 'hidden'; // Prevent FOUC
+      
+      /* initial run */
+      wrapper.style.visibility = 'hidden';            // hide to prevent flash
       setTimeout(() => {
-        wrapper.style.visibility = 'visible';
+        wrapper.style.visibility = 'visible';         // reveal after tier set
         boot(wrapper);
       }, INIT_DELAY);
     });
   }
 
-  // Add pulse keyframes if not already added
-  if (!document.getElementById('hx25-pulse-keyframes')) {
-    const style = document.createElement('style');
-    style.id = 'hx25-pulse-keyframes';
-    style.textContent = '@keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.05)} }';
-    document.head.appendChild(style);
-  }
-
-  // SPA Navigation Handling
+  // Enhanced navigation detection for complex SPA routing
   let lastPathname = location.pathname;
   let navigationTimeout = null;
   
+  // Function to handle navigation changes
   function handleNavigationChange(newPathname) {
-    if (newPathname === lastPathname) return;
+    if (newPathname === lastPathname) {
+      return;
+    }
     
+    // Clear any pending timeout
     if (navigationTimeout) {
       clearTimeout(navigationTimeout);
     }
     
+    // Update tracker
     tracker.currentPage = newPathname;
     tracker.visitedPages.add(newPathname);
+    
+    // Reset processing flag for new page
     isProcessing = false;
     
+    // Clean up observer
     if (currentObserver) {
       currentObserver.disconnect();
       currentObserver = null;
     }
     
+    // Update last pathname
     lastPathname = newPathname;
     
+    // If we're on a portal page, restart the process after a short delay
     if (newPathname.includes('/portal')) {
       navigationTimeout = setTimeout(() => {
+        // Check if we should process this page
         if (shouldProcessPage()) {
           tracker.lastProcessedPage = newPathname;
           start();
         }
-      }, 150);
+      }, 150); // Slightly longer delay to ensure DOM is ready
     }
   }
   
-  // Navigation listeners
+  // Check for pathname changes periodically (for SPA navigation)
   setInterval(() => {
     handleNavigationChange(location.pathname);
-  }, 100);
+  }, 100); // Check every 100ms
   
+  // Also listen for popstate events (browser back/forward)
   window.addEventListener('popstate', () => {
     setTimeout(() => {
       handleNavigationChange(location.pathname);
     }, 50);
   });
   
+  // Listen for pushstate/replacestate (programmatic navigation)
   const originalPushState = history.pushState;
   const originalReplaceState = history.replaceState;
   
@@ -280,10 +280,11 @@
       handleNavigationChange(location.pathname);
     }, 50);
   };
-
-  // Start when ready
+  
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', start, { once: true });
+    document.addEventListener('DOMContentLoaded', () => {
+      start();
+    }, { once: true });
   } else {
     start();
   }
