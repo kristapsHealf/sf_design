@@ -27,8 +27,8 @@
     log('🎨 Injecting styles...');
     if (document.getElementById(STYLE_ID)) {
       log('✅ Styles already injected');
-    return;
-  }
+      return;
+    }
     const s = document.createElement('style');
     s.id = STYLE_ID;
     log('📝 Creating style element with ID:', STYLE_ID);
@@ -611,8 +611,10 @@
     const tier = pickTier(vars);
     log('🎯 Selected tier:', tier);
     
-    showTier(tier, wrapper);
+    // Inject styles FIRST before any DOM manipulation
     injectStyles();
+    
+    showTier(tier, wrapper);
 
     const active = wrapper.querySelector(`[data-tier="${tier}"]`) || wrapper.querySelector('[data-tier]');
     log('🎪 Active section found:', active?.getAttribute('data-tier') || 'none');
@@ -668,6 +670,9 @@
     }
     
     log('⏳ Waiting for wrapper to be ready...');
+    // Inject styles early to ensure they're available
+    injectStyles();
+    
     whenWrapperReady(wrapper => {
       log('✅ Wrapper ready, hiding and starting boot sequence...');
       wrapper.style.visibility = 'hidden';
