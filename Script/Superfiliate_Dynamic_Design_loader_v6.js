@@ -13,6 +13,11 @@
   const TARGETS           = { rise: 500, radiate: 2500, empower: null };
   const DEBUG             = true; // Force enable extensive logging
   const VERBOSE           = true; // Extra detailed logging
+  
+  // Tracker config
+  const TRACKER_CIRCLES   = 3; // Number of referral circles
+  const MOCK_REFERRALS    = 0; // Mock data - completed referrals (0-3)
+  const STATS_API_URL     = 'https://aiwellbeing.app.n8n.cloud/webhook/aff/stats';
 
   const log  = (...a) => { if (DEBUG) try { console.log('[HX25]', ...a); } catch(_){} };
   const warn = (...a) => { if (DEBUG) try { console.warn('[HX25]', ...a); } catch(_){} };
@@ -124,6 +129,79 @@
 @media (prefers-reduced-motion: reduce){
   .hx25-shine{ animation:none }
 }
+
+/* Referral Tracker - 20% shorter */
+.hx25-tracker{
+  margin-top:20px; padding:12px 16px; border-radius:14px; overflow:hidden;
+  position:relative; background:linear-gradient(135deg,#0b2f66 0%,#164a7f 28%,#2c6aa3 55%,#5b9bd5 78%,#a8c7e6 100%);
+  color:#fff; box-shadow:0 4px 16px rgba(11,47,102,.25);
+}
+.hx25-tracker-video{
+  position:absolute; inset:0; width:100%; height:100%; object-fit:cover;
+  z-index:0; pointer-events:none; filter:saturate(1.08) contrast(1.04) brightness(.95);
+}
+.hx25-tracker-scrim{
+  position:absolute; inset:0; z-index:1; pointer-events:none;
+  background:linear-gradient(180deg, rgba(255,255,255,.12), rgba(255,255,255,.06) 25%, rgba(255,255,255,.06) 75%, rgba(255,255,255,.10));
+}
+.hx25-tracker-content{
+  position:relative; z-index:2; display:flex; flex-direction:column; align-items:center; gap:12px;
+}
+.hx25-tracker-title{
+  font-family:'Avenir', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size:15px; font-weight:700; text-align:center; letter-spacing:.2px;
+  text-shadow:0 1px 1px rgba(0,0,0,.25); margin-bottom:2px;
+}
+.hx25-tracker-main{
+  display:flex; align-items:center; justify-content:center; gap:16px;
+}
+.hx25-tracker-circles{
+  display:flex; gap:14px; align-items:center; justify-content:center;
+}
+.hx25-circle{
+  width:35px; height:35px; border-radius:50%; position:relative;
+  background:rgba(255,255,255,.15); border:2px solid rgba(255,255,255,.3);
+  display:flex; align-items:center; justify-content:center;
+  transition:all .3s cubic-bezier(.4,0,.2,1);
+}
+.hx25-circle.completed{
+  background:rgba(255,255,255,.95); border-color:#fff;
+  transform:scale(1.1); box-shadow:0 3px 8px rgba(255,255,255,.3);
+}
+.hx25-circle.completed::after{
+  content:'✓'; font-size:16px; font-weight:bold; 
+  color:#0b2f66; text-shadow:none;
+}
+.hx25-circle:not(.completed){
+  background:rgba(255,255,255,.08); border-color:rgba(255,255,255,.2);
+}
+.hx25-unlock-indicator{
+  font-family:'Avenir', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size:12px; font-weight:600; text-align:left; letter-spacing:.2px;
+  background:rgba(255,255,255,.2); padding:6px 12px; border-radius:16px;
+  text-shadow:0 1px 1px rgba(0,0,0,.25); white-space:nowrap;
+  opacity:0; transform:translateX(-10px); transition:all .4s ease;
+}
+.hx25-unlock-indicator.visible{
+  opacity:1; transform:translateX(0);
+}
+.hx25-unlock-indicator.unlocked{
+  background:rgba(255,255,255,.95); color:#0b2f66; text-shadow:none;
+  animation:hx25-unlock-pulse 2s ease-in-out infinite;
+}
+@keyframes hx25-unlock-pulse{
+  0%, 100%{ transform:scale(1) }
+  50%{ transform:scale(1.05) }
+}
+@media (max-width:420px){
+  .hx25-tracker{ padding:10px 12px; margin-top:16px }
+  .hx25-tracker-title{ font-size:14px }
+  .hx25-tracker-main{ gap:12px }
+  .hx25-tracker-circles{ gap:10px }
+  .hx25-circle{ width:30px; height:30px }
+  .hx25-circle.completed::after{ font-size:14px }
+  .hx25-unlock-indicator{ font-size:11px; padding:5px 10px }
+}
 `;
     document.head.appendChild(s);
     log('✅ Styles injected successfully');
@@ -136,15 +214,73 @@
     return `${url}${sep}${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`;
   };
 
-  function getEmail(wrapper){
+  function getCode(wrapper){
     try {
-      const scoped = wrapper?.querySelector?.('#sf-email');
-      const el = scoped || document.getElementById('sf-email');
+      const scoped = wrapper?.querySelector?.('#sf-code');
+      const el = scoped || document.getElementById('sf-code');
       const text = el?.textContent?.trim() || '';
       if (text) return text;
     } catch(_){}
-    try { if (window.HX25_EMAIL) return String(window.HX25_EMAIL); } catch(_){}
+    try { if (window.HX25_CODE) return String(window.HX25_CODE); } catch(_){}
     return '';
+  }
+
+  // Simple webhook call that updates tracker
+  function callStatsAPI(code) {
+    try {
+      log('📊 Calling stats API with code:', code);
+      const url = `${STATS_API_URL}?code=${encodeURIComponent(code)}`;
+      fetch(url).then(res => res.json()).then(data => {
+        log('✅ Stats API response:', data);
+        
+        // Update tracker with reffCounts
+        const reffCounts = parseInt(data.reffCounts) || 0;
+        log('🎯 Updating tracker with reffCounts:', reffCounts);
+        updateTrackerWithCount(reffCounts);
+        
+      }).catch(err => {
+        warn('❌ Stats API failed:', err);
+      });
+    } catch(e) {
+      err('❌ Stats API call error:', e);
+    }
+  }
+
+  // Update existing tracker with new count
+  function updateTrackerWithCount(count) {
+    const tracker = document.querySelector('.hx25-tracker');
+    if (!tracker) {
+      warn('⚠️ No tracker found to update');
+      return;
+    }
+
+    const circles = tracker.querySelectorAll('.hx25-circle');
+    const indicator = tracker.querySelector('.hx25-unlock-indicator');
+    
+    log('🔄 Updating', circles.length, 'circles with count:', count);
+    
+    // Update circles
+    circles.forEach((circle, index) => {
+      if (index < count) {
+        circle.classList.add('completed');
+      } else {
+        circle.classList.remove('completed');
+      }
+    });
+
+    // Update indicator
+    if (indicator) {
+      if (count >= TRACKER_CIRCLES) {
+        indicator.textContent = '🎟️ Free Ticket!';
+        indicator.classList.add('unlocked');
+      } else {
+        const remaining = TRACKER_CIRCLES - count;
+        indicator.textContent = `${remaining} more for free ticket`;
+        indicator.classList.remove('unlocked');
+      }
+    }
+    
+    log('✅ Tracker updated successfully');
   }
 
   function readVars(){
@@ -325,11 +461,11 @@
     verbose('🌐 Window HX25_LINK:', window.HX25_LINK);
     verbose('🔗 Final href before email:', href);
 
-    const email = getEmail(host.closest('#sf-campaign-wrapper')) || 'kristaps+1@healf.com';
-    href = withQueryParam(href, 'email', email);
+    const code = getCode(host.closest('#sf-campaign-wrapper')) || 'DEFAULT_CODE';
+    href = withQueryParam(href, 'aff', code);
     
-    log('📧 Email found:', email);
-    log('🔗 Final href with email:', href);
+    log('🎯 Code found:', code);
+    log('🔗 Final href with code:', href);
 
     log('🔍 Checking if button needs linking. __hxLinked:', btn.__hxLinked);
     if (!btn.__hxLinked){
@@ -493,6 +629,103 @@
     }
   }
 
+  /* ========= REFERRAL TRACKER ========= */
+  function ensureTrackerVideo(tracker){
+    verbose('🎬 Ensuring tracker video:', tracker);
+    let vid = tracker.querySelector('.hx25-tracker-video');
+    if (!vid){
+      log('📹 Creating tracker video element');
+      vid = document.createElement('video');
+      vid.className = 'hx25-tracker-video';
+      vid.muted = true; vid.setAttribute('muted','');
+      vid.autoplay = true; vid.setAttribute('autoplay','');
+      vid.loop = true;
+      vid.playsInline = true; vid.setAttribute('playsinline','');
+      vid.preload = 'auto';
+      const src = document.createElement('source');
+      src.src = VIDEO_SRC; src.type = 'video/mp4';
+      vid.appendChild(src);
+      tracker.insertBefore(vid, tracker.firstChild);
+      log('✅ Tracker video created');
+    }
+    
+    const tryPlay = () => {
+      const p = vid.play && vid.play();
+      if (p && p.then) p.then(() => log('✅ Tracker video playing')).catch(() => {});
+    };
+    
+    vid.addEventListener('loadeddata', tryPlay);
+    vid.addEventListener('canplay', tryPlay);
+    tryPlay();
+  }
+
+  function createTracker(completedReferrals = MOCK_REFERRALS){
+    log('🎯 Creating referral tracker with', completedReferrals, 'completed referrals');
+    
+    const tracker = document.createElement('div');
+    tracker.className = 'hx25-tracker';
+    
+    // Background video
+    ensureTrackerVideo(tracker);
+    
+    // Scrim overlay
+    const scrim = document.createElement('div');
+    scrim.className = 'hx25-tracker-scrim';
+    tracker.appendChild(scrim);
+    
+    // Content container
+    const content = document.createElement('div');
+    content.className = 'hx25-tracker-content';
+    tracker.appendChild(content);
+    
+    // Title
+    const title = document.createElement('div');
+    title.className = 'hx25-tracker-title';
+    title.textContent = 'Referral Progress';
+    content.appendChild(title);
+    
+    // Main container (circles + indicator)
+    const main = document.createElement('div');
+    main.className = 'hx25-tracker-main';
+    content.appendChild(main);
+    
+    // Circles container
+    const circles = document.createElement('div');
+    circles.className = 'hx25-tracker-circles';
+    main.appendChild(circles);
+    
+    // Create circles
+    for (let i = 0; i < TRACKER_CIRCLES; i++) {
+      const circle = document.createElement('div');
+      circle.className = 'hx25-circle';
+      if (i < completedReferrals) {
+        circle.classList.add('completed');
+      }
+      circles.appendChild(circle);
+    }
+    
+    // Unlock indicator (to the right of circles)
+    const indicator = document.createElement('div');
+    indicator.className = 'hx25-unlock-indicator';
+    
+    if (completedReferrals >= TRACKER_CIRCLES) {
+      indicator.textContent = '🎟️ Free Ticket!';
+      indicator.classList.add('unlocked');
+    } else {
+      const remaining = TRACKER_CIRCLES - completedReferrals;
+      indicator.textContent = `${remaining} more for free ticket`;
+    }
+    
+    main.appendChild(indicator);
+    
+    // Animate in
+    setTimeout(() => {
+      indicator.classList.add('visible');
+    }, 300);
+    
+    return tracker;
+  }
+
   /* ========= PLACE BUTTON BELOW CARD ========= */
   function ensureButtonBlockBelow(section){
     log('🏗️ Ensuring button block below section:', section?.getAttribute('data-tier') || 'unknown');
@@ -565,8 +798,18 @@
     ensureForeground(btn);
     attachLinkAndA11y(btn, section);
 
-    log('✅ Button block setup complete');
-    return { block, btn };
+    // Add tracker below button
+    let tracker = host.querySelector('.hx25-tracker');
+    if (!tracker) {
+      log('🎯 Adding referral tracker below button...');
+      tracker = createTracker();
+      host.appendChild(tracker);
+    } else {
+      verbose('✅ Tracker already exists');
+    }
+
+    log('✅ Button block and tracker setup complete');
+    return { block, btn, tracker };
   }
 
   /* ========= TIERING / FLOW ========= */
@@ -586,19 +829,32 @@
   }
 
   function showTier(tier, wrapper){
-    if (isProcessing) return;
+    log('🎪 showTier called with tier:', tier, 'isProcessing:', isProcessing);
+    if (isProcessing) {
+      warn('⚠️ showTier blocked by isProcessing flag');
+      return;
+    }
     isProcessing = true;
+    log('🔍 Finding tier sections in wrapper...');
     const all = wrapper.querySelectorAll('[data-tier]');
-    all.forEach(s => { s.style.display = 'none'; });
+    log('📊 Found', all.length, 'tier sections');
+    all.forEach(s => { 
+      s.style.display = 'none'; 
+      log('❌ Hidden section:', s.dataset.tier);
+    });
     const target = wrapper.querySelector(`[data-tier="${tier}"]`);
+    log('🎯 Target section for', tier, ':', target);
     if (target) {
       target.style.display = 'block';
       target.style.setProperty('display','block','important');
+      log('✅ Showing section:', tier, 'display:', target.style.display);
     } else {
+      warn('❌ No target section found for tier:', tier);
       all.forEach(s => s.style.removeProperty('display'));
     }
     updateBar(target || null, tier);
     isProcessing = false;
+    log('✅ showTier completed for tier:', tier);
   }
 
   function boot(wrapper){
@@ -615,6 +871,12 @@
     
     // Inject styles FIRST before any DOM manipulation
     injectStyles();
+    
+    // Call stats API on page load
+    const code = getCode(wrapper);
+    if (code) {
+      callStatsAPI(code);
+    }
     
     showTier(tier, wrapper);
 
@@ -637,13 +899,14 @@
         verbose('🔄 Mutation detected, checking if button needs re-ensuring...');
         const sec = wrapper.querySelector(`[data-tier="${tier}"]`) || wrapper.querySelector('[data-tier]');
         if (sec) {
-          // Only re-ensure if button doesn't exist
+          // Only re-ensure if button or tracker doesn't exist
           const existingBtn = sec.nextElementSibling?.querySelector('.hx25-button');
-          if (!existingBtn) {
-            log('🔧 Button missing, re-ensuring...');
+          const existingTracker = sec.nextElementSibling?.querySelector('.hx25-tracker');
+          if (!existingBtn || !existingTracker) {
+            log('🔧 Button or tracker missing, re-ensuring...');
             ensureButtonBlockBelow(sec);
           } else {
-            verbose('✅ Button still exists, skipping re-ensure');
+            verbose('✅ Button and tracker still exist, skipping re-ensure');
           }
         }
       });
@@ -795,6 +1058,23 @@
         log('- Next sibling:', btn.nextElementSibling?.className);
       } else {
         err('❌ No button found!');
+      }
+    };
+    
+    // Test function to update tracker with different referral counts
+    window.HX25_updateTracker = function(count = 2){
+      log('🧪 Updating tracker with', count, 'referrals');
+      const tracker = document.querySelector('.hx25-tracker');
+      if (tracker) {
+        tracker.remove();
+        const host = document.querySelector('.hx25-btn-host');
+        if (host) {
+          const newTracker = createTracker(count);
+          host.appendChild(newTracker);
+          log('✅ Tracker updated');
+        }
+      } else {
+        err('❌ No tracker found!');
       }
     };
   } catch(_){}
