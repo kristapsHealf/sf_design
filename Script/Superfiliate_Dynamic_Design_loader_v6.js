@@ -25,56 +25,6 @@
   const verbose = (...a) => { if (VERBOSE) try { console.log('[HX25-VERBOSE]', ...a); } catch(_){} };
 
   if (!location.pathname.includes('/portal')) return;
-  
-  // Better SPA protection - track navigation state more robustly
-  const pageKey = location.pathname;
-  const flagKey = `__sfTierLoaded_${pageKey.replace(/[^a-zA-Z0-9]/g, '_')}`;
-  
-  // Track if we're currently processing to prevent multiple simultaneous runs
-  let isProcessing = false;
-  let currentObserver = null;
-  let navigationHistory = new Set();
-  
-  // Initialize navigation tracking
-  if (!window.__sfNavigationTracker) {
-    window.__sfNavigationTracker = {
-      currentPage: pageKey,
-      visitedPages: new Set(),
-      lastProcessedPage: null
-    };
-  }
-  
-  const tracker = window.__sfNavigationTracker;
-  tracker.visitedPages.add(pageKey);
-  
-  // Check if we need to process this page
-  const shouldProcessPage = () => {
-    // Always process if this is a new page
-    if (!tracker.visitedPages.has(pageKey)) {
-      return true;
-    }
-    
-    // Process if we're returning to a page after navigating away
-    if (tracker.currentPage !== pageKey) {
-      return true;
-    }
-    
-    // Process if this page hasn't been processed yet
-    if (tracker.lastProcessedPage !== pageKey) {
-      return true;
-    }
-    
-    return false;
-  };
-  
-  if (!shouldProcessPage()) {
-    return;
-  }
-  
-  // Update tracker state
-  tracker.currentPage = pageKey;
-  tracker.lastProcessedPage = pageKey;
-
   const isDisabled = () => (typeof window !== 'undefined' && window[DISABLE_FLAG] === true);
 
   /* ========= STYLE ========= */
@@ -861,6 +811,8 @@
   }
 
   /* ========= TIERING / FLOW ========= */
+  let isProcessing = false;
+  let currentObserver = null;
   let hxObserver = null;
 
   function whenWrapperReady(cb){
@@ -874,12 +826,20 @@
     currentObserver.observe(document.body, { childList:true, subtree:true });
   }
 
+  function whenTierReady(cb){
+    if (document.querySelector('[data-tier]')) return cb();
+    const mo = new MutationObserver(() => {
+      if (document.querySelector('[data-tier]')) { mo.disconnect(); cb(); }
+    });
+    mo.observe(document.body, { childList:true, subtree:true });
+  }
+
   function showTier(tier, wrapper){
     if (isProcessing) return;
     isProcessing = true;
-    const all = wrapper.querySelectorAll('[data-tier]');
+    const all = document.querySelectorAll('[data-tier]');
     all.forEach(s => { s.style.display = 'none'; });
-    const target = wrapper.querySelector(`[data-tier="${tier}"]`);
+    const target = document.querySelector(`[data-tier="${tier}"]`);
     if (target) {
       target.style.display = 'block';
       target.style.setProperty('display','block','important');
@@ -913,7 +873,7 @@
     
     showTier(tier, wrapper);
 
-    const active = wrapper.querySelector(`[data-tier="${tier}"]`) || wrapper.querySelector('[data-tier]');
+    const active = document.querySelector(`[data-tier="${tier}"]`) || document.querySelector('[data-tier]');
     log('🎪 Active section found:', active?.getAttribute('data-tier') || 'none');
     
     if (active) {
@@ -930,7 +890,7 @@
       log('👀 Setting up mutation observer...');
       hxObserver = new MutationObserver(() => {
         verbose('🔄 Mutation detected, checking if button needs re-ensuring...');
-        const sec = wrapper.querySelector(`[data-tier="${tier}"]`) || wrapper.querySelector('[data-tier]');
+        const sec = document.querySelector(`[data-tier="${tier}"]`) || document.querySelector('[data-tier]');
         if (sec) {
           // Only re-ensure if button or tracker doesn't exist
           const existingBtn = sec.nextElementSibling?.querySelector('.hx25-button');
@@ -973,16 +933,26 @@
     
     whenWrapperReady(wrapper => {
       log('✅ Wrapper ready, hiding and starting boot sequence...');
-      wrapper.style.visibility = 'hidden';
-      setTimeout(() => {
-        log('👁️ Making wrapper visible and booting...');
-        wrapper.style.visibility = 'visible';
-        boot(wrapper);
-      }, INIT_DELAY);
+      injectStyles();
+      whenTierReady(tier => {
+        setTimeout(() => boot(wrapper), INIT_DELAY);
+      });
     });
   }
 
   /* ========= SPA NAV ========= */
+  if (!window.__sfNavigationTracker) {
+    window.__sfNavigationTracker = { currentPage: location.pathname, visitedPages: new Set(), lastProcessedPage: null };
+  }
+  const tracker = window.__sfNavigationTracker;
+  tracker.visitedPages.add(location.pathname);
+
+  const shouldProcessPage = (pathname) => {
+    if (!tracker.visitedPages.has(pathname)) return true;
+    if (tracker.currentPage !== pathname) return true;
+    if (tracker.lastProcessedPage !== pathname) return true;
+    return false;
+  };
 
   let lastPathname = location.pathname;
   let navigationTimeout = null;
@@ -1002,25 +972,19 @@
     
     if (newPathname.includes('/portal')) {
       navigationTimeout = setTimeout(() => {
-        // For navigation changes, we need to check if this page should be processed
-        const currentPageKey = newPathname;
-        const shouldProcess = !tracker.visitedPages.has(currentPageKey) || 
-                             tracker.currentPage !== currentPageKey || 
-                             tracker.lastProcessedPage !== currentPageKey;
-        
-        if (shouldProcess) {
+        if (shouldProcessPage(newPathname)) {
           tracker.lastProcessedPage = newPathname;
           start();
         }
-      }, 150);
+      }, 180);
     }
   }
 
-  setInterval(() => { handleNavigationChange(location.pathname); }, 100);
-  window.addEventListener('popstate', () => setTimeout(() => handleNavigationChange(location.pathname), 50));
+  setInterval(() => { handleNavigationChange(location.pathname); }, 120);
+  window.addEventListener('popstate', () => setTimeout(() => handleNavigationChange(location.pathname), 60));
   const _ps = history.pushState; const _rs = history.replaceState;
-  history.pushState = function(...args){ _ps.apply(this, args); setTimeout(() => handleNavigationChange(location.pathname), 50); };
-  history.replaceState = function(...args){ _rs.apply(this, args); setTimeout(() => handleNavigationChange(location.pathname), 50); };
+  history.pushState = function(...args){ _ps.apply(this, args); setTimeout(() => handleNavigationChange(location.pathname), 60); };
+  history.replaceState = function(...args){ _rs.apply(this, args); setTimeout(() => handleNavigationChange(location.pathname), 60); };
 
   /* ========= BOOT ========= */
   log('🎬 Script initialization starting...');
