@@ -17,7 +17,7 @@
   // Tracker config
   const TRACKER_CIRCLES   = 3; // Number of referral circles
   const MOCK_REFERRALS    = 0; // Mock data - completed referrals (0-3)
-  const STATS_API_URL     = 'https://aiwellbeing.app.n8n.cloud/webhook-test/aff/stats';
+  const STATS_API_URL     = 'https://aiwellbeing.app.n8n.cloud/webhook/aff/stats';
 
   const log  = (...a) => { if (DEBUG) try { console.log('[HX25]', ...a); } catch(_){} };
   const warn = (...a) => { if (DEBUG) try { console.warn('[HX25]', ...a); } catch(_){} };
