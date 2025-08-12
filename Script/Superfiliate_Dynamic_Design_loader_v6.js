@@ -983,11 +983,15 @@
     
     whenWrapperReady(wrapper => {
       log('✅ Wrapper ready, hiding and starting boot sequence...');
+      log('🔍 Wrapper found:', wrapper);
+      log('🔍 Wrapper children count:', wrapper?.children?.length);
       wrapper.style.visibility = 'hidden';
       setTimeout(() => {
-        log('👁️ Making wrapper visible and booting...');
+        log('👁️ Making wrapper visible and about to call boot...');
         wrapper.style.visibility = 'visible';
+        log('🎯 CALLING BOOT FUNCTION NOW');
         boot(wrapper);
+        log('🎯 BOOT FUNCTION CALL COMPLETED');
       }, INIT_DELAY);
     });
   }
