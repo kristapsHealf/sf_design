@@ -2,17 +2,17 @@
   'use strict';
 
   /* ========= CONFIG ========= */
-  const INIT_DELAY        = 1000;
+  const INIT_DELAY        = 320;
   const STYLE_ID          = 'hx25-button-tracker-v1';
   const BTN_SELECTOR      = '.hx25-button, .hx25-btn, [data-hx25-btn], #hx25-button';
   const VIDEO_SRC         = 'https://i.imgur.com/1zJtkCw.mp4';
   const LOGO_SRC          = 'https://cdn.shopify.com/s/files/1/0405/7291/1765/files/Group_10879850.svg?v=1754920813';
   const LABEL_TEXT        = 'Generate your unique referral link';
-  const DEFAULT_LINK      = 'https://www.eventbrite.com/e/healf-experience-tickets-1545147591039?';
+  const DEFAULT_LINK      = 'https://www.eventbrite.com/e/healf-experience-tickets-1545147591039?aff=482504953';
   const DISABLE_FLAG      = '__HX25_DISABLE__';
   const TARGETS           = { rise: 500, radiate: 2500, empower: null };
-  const DEBUG             = true; // Force enable extensive logging  
-  const VERBOSE           = true; // Extra detailed logging
+  const DEBUG             = false; // Force enable extensive logging
+  const VERBOSE           = false; // Extra detailed logging
   
   // Tracker config
   const TRACKER_CIRCLES   = 3; // Number of referral circles
@@ -23,6 +23,57 @@
   const warn = (...a) => { if (DEBUG) try { console.warn('[HX25]', ...a); } catch(_){} };
   const err  = (...a) => { if (DEBUG) try { console.error('[HX25]', ...a); } catch(_){} };
   const verbose = (...a) => { if (VERBOSE) try { console.log('[HX25-VERBOSE]', ...a); } catch(_){} };
+
+  if (!location.pathname.includes('/portal')) return;
+  
+  // Better SPA protection - track navigation state more robustly
+  const pageKey = location.pathname;
+  const flagKey = `__sfTierLoaded_${pageKey.replace(/[^a-zA-Z0-9]/g, '_')}`;
+  
+  // Track if we're currently processing to prevent multiple simultaneous runs
+  let isProcessing = false;
+  let currentObserver = null;
+  let navigationHistory = new Set();
+  
+  // Initialize navigation tracking
+  if (!window.__sfNavigationTracker) {
+    window.__sfNavigationTracker = {
+      currentPage: pageKey,
+      visitedPages: new Set(),
+      lastProcessedPage: null
+    };
+  }
+  
+  const tracker = window.__sfNavigationTracker;
+  tracker.visitedPages.add(pageKey);
+  
+  // Check if we need to process this page
+  const shouldProcessPage = () => {
+    // Always process if this is a new page
+    if (!tracker.visitedPages.has(pageKey)) {
+      return true;
+    }
+    
+    // Process if we're returning to a page after navigating away
+    if (tracker.currentPage !== pageKey) {
+      return true;
+    }
+    
+    // Process if this page hasn't been processed yet
+    if (tracker.lastProcessedPage !== pageKey) {
+      return true;
+    }
+    
+    return false;
+  };
+  
+  if (!shouldProcessPage()) {
+    return;
+  }
+  
+  // Update tracker state
+  tracker.currentPage = pageKey;
+  tracker.lastProcessedPage = pageKey;
 
   const isDisabled = () => (typeof window !== 'undefined' && window[DISABLE_FLAG] === true);
 
@@ -810,8 +861,6 @@
   }
 
   /* ========= TIERING / FLOW ========= */
-  let isProcessing = false;
-  let currentObserver = null;
   let hxObserver = null;
 
   function whenWrapperReady(cb){
@@ -826,40 +875,19 @@
   }
 
   function showTier(tier, wrapper){
-    log('🎪 showTier called for tier:', tier);
+    if (isProcessing) return;
+    isProcessing = true;
     const all = wrapper.querySelectorAll('[data-tier]');
-    log('📊 Found', all.length, 'tier sections');
-    
-    all.forEach(s => { 
-      s.style.display = 'none'; 
-      log('❌ Hidden section:', s.dataset.tier);
-    });
-    
+    all.forEach(s => { s.style.display = 'none'; });
     const target = wrapper.querySelector(`[data-tier="${tier}"]`);
-    log('🎯 Target section for', tier, ':', !!target);
-    
     if (target) {
       target.style.display = 'block';
       target.style.setProperty('display','block','important');
-      target.style.visibility = 'visible';
-      target.style.setProperty('visibility','visible','important');
-      
-      log('✅ Showing section:', tier);
-      log('  - display:', target.style.display);
-      log('  - computed display:', window.getComputedStyle(target).display);
-      log('  - visibility:', target.style.visibility);
-      log('  - computed visibility:', window.getComputedStyle(target).visibility);
-      
-      // Force wrapper to be visible too
-      wrapper.style.visibility = 'visible';
-      wrapper.style.setProperty('visibility','visible','important');
-      wrapper.style.setProperty('display','block','important');
     } else {
-      warn('❌ No target section found for tier:', tier);
-      log('Available tiers:', Array.from(all).map(s => s.dataset.tier));
       all.forEach(s => s.style.removeProperty('display'));
     }
     updateBar(target || null, tier);
+    isProcessing = false;
   }
 
   function boot(wrapper){
@@ -929,7 +957,6 @@
   }
 
   function start(){
-    if (!location.pathname.includes('/portal')) return;
     log('🌟 START called');
     if (isProcessing) {
       warn('⚠️ Already processing, aborting start');
@@ -956,18 +983,6 @@
   }
 
   /* ========= SPA NAV ========= */
-  if (!window.__sfNavigationTracker) {
-    window.__sfNavigationTracker = { currentPage: location.pathname, visitedPages: new Set(), lastProcessedPage: null };
-  }
-  const tracker = window.__sfNavigationTracker;
-  tracker.visitedPages.add(location.pathname);
-
-  const shouldProcessPage = (pathname) => {
-    if (!tracker.visitedPages.has(pathname)) return true;
-    if (tracker.currentPage !== pathname) return true;
-    if (tracker.lastProcessedPage !== pathname) return true;
-    return false;
-  };
 
   let lastPathname = location.pathname;
   let navigationTimeout = null;
@@ -987,19 +1002,25 @@
     
     if (newPathname.includes('/portal')) {
       navigationTimeout = setTimeout(() => {
-        if (shouldProcessPage(newPathname)) {
+        // For navigation changes, we need to check if this page should be processed
+        const currentPageKey = newPathname;
+        const shouldProcess = !tracker.visitedPages.has(currentPageKey) || 
+                             tracker.currentPage !== currentPageKey || 
+                             tracker.lastProcessedPage !== currentPageKey;
+        
+        if (shouldProcess) {
           tracker.lastProcessedPage = newPathname;
           start();
         }
-      }, 180);
+      }, 150);
     }
   }
 
-  setInterval(() => { handleNavigationChange(location.pathname); }, 120);
-  window.addEventListener('popstate', () => setTimeout(() => handleNavigationChange(location.pathname), 60));
+  setInterval(() => { handleNavigationChange(location.pathname); }, 100);
+  window.addEventListener('popstate', () => setTimeout(() => handleNavigationChange(location.pathname), 50));
   const _ps = history.pushState; const _rs = history.replaceState;
-  history.pushState = function(...args){ _ps.apply(this, args); setTimeout(() => handleNavigationChange(location.pathname), 60); };
-  history.replaceState = function(...args){ _rs.apply(this, args); setTimeout(() => handleNavigationChange(location.pathname), 60); };
+  history.pushState = function(...args){ _ps.apply(this, args); setTimeout(() => handleNavigationChange(location.pathname), 50); };
+  history.replaceState = function(...args){ _rs.apply(this, args); setTimeout(() => handleNavigationChange(location.pathname), 50); };
 
   /* ========= BOOT ========= */
   log('🎬 Script initialization starting...');
