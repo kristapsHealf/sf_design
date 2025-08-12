@@ -850,6 +850,7 @@
 
   function showTier(tier, wrapper){
     log('🎪 showTier called with tier:', tier, 'isProcessing:', isProcessing);
+    log('🔍 Wrapper element:', wrapper);
     if (isProcessing) {
       warn('⚠️ showTier blocked by isProcessing flag');
       return;
@@ -857,7 +858,7 @@
     isProcessing = true;
     log('🔍 Finding tier sections in wrapper...');
     const all = wrapper.querySelectorAll('[data-tier]');
-    log('📊 Found', all.length, 'tier sections');
+    log('📊 Found', all.length, 'tier sections:', Array.from(all).map(s => s.dataset.tier));
     all.forEach(s => { 
       s.style.display = 'none'; 
       log('❌ Hidden section:', s.dataset.tier);
@@ -865,17 +866,29 @@
     const target = wrapper.querySelector(`[data-tier="${tier}"]`);
     log('🎯 Target section for', tier, ':', target);
     if (target) {
+      log('🔧 Setting target section styles...');
       target.style.display = 'block';
       target.style.setProperty('display','block','important');
       target.style.visibility = 'visible';
       target.style.setProperty('visibility','visible','important');
-      log('✅ Showing section:', tier, 'display:', target.style.display, 'visibility:', target.style.visibility);
+      
+      // Force remove any conflicting styles
+      target.style.removeProperty('opacity');
+      target.style.setProperty('opacity','1','important');
+      
+      log('✅ Showing section:', tier);
+      log('  - display:', target.style.display);
+      log('  - computed display:', window.getComputedStyle(target).display);
+      log('  - visibility:', target.style.visibility);
+      log('  - computed visibility:', window.getComputedStyle(target).visibility);
       
       // Also ensure wrapper is visible
       wrapper.style.visibility = 'visible';
       wrapper.style.setProperty('visibility','visible','important');
+      wrapper.style.setProperty('display','block','important');
     } else {
       warn('❌ No target section found for tier:', tier);
+      log('Available tiers:', Array.from(all).map(s => s.dataset.tier));
       all.forEach(s => s.style.removeProperty('display'));
     }
     updateBar(target || null, tier);
@@ -898,7 +911,17 @@
     // Inject styles FIRST before any DOM manipulation
     injectStyles();
     
+    // Force show the tier section
+    log('🎪 About to call showTier with:', tier, wrapper);
     showTier(tier, wrapper);
+    
+    // Verify the tier was shown
+    const targetSection = wrapper.querySelector(`[data-tier="${tier}"]`);
+    log('🔍 Target section after showTier:', targetSection);
+    if (targetSection) {
+      log('📏 Target section display:', targetSection.style.display);
+      log('📏 Target section computed display:', window.getComputedStyle(targetSection).display);
+    }
 
     const active = wrapper.querySelector(`[data-tier="${tier}"]`) || wrapper.querySelector('[data-tier]');
     log('🎪 Active section found:', active?.getAttribute('data-tier') || 'none');
