@@ -2,7 +2,7 @@
   'use strict';
 
   /* ========= CONFIG ========= */
-  const INIT_DELAY        = 320;
+  const INIT_DELAY        = 620;
   const STYLE_ID          = 'hx25-button-tracker-v1';
   const BTN_SELECTOR      = '.hx25-button, .hx25-btn, [data-hx25-btn], #hx25-button';
   const VIDEO_SRC         = 'https://i.imgur.com/1zJtkCw.mp4';
