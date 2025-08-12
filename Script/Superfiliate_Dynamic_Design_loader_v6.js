@@ -11,8 +11,8 @@
   const DEFAULT_LINK      = 'https://www.eventbrite.com/e/healf-experience-tickets-1545147591039?';
   const DISABLE_FLAG      = '__HX25_DISABLE__';
   const TARGETS           = { rise: 500, radiate: 2500, empower: null };
-  const DEBUG             = false; // Force enable extensive logging
-  const VERBOSE           = false; // Extra detailed logging
+  const DEBUG             = true; // Force enable extensive logging  
+  const VERBOSE           = true; // Extra detailed logging
   
   // Tracker config
   const TRACKER_CIRCLES   = 3; // Number of referral circles
@@ -826,19 +826,40 @@
   }
 
   function showTier(tier, wrapper){
-    if (isProcessing) return;
-    isProcessing = true;
+    log('🎪 showTier called for tier:', tier);
     const all = wrapper.querySelectorAll('[data-tier]');
-    all.forEach(s => { s.style.display = 'none'; });
+    log('📊 Found', all.length, 'tier sections');
+    
+    all.forEach(s => { 
+      s.style.display = 'none'; 
+      log('❌ Hidden section:', s.dataset.tier);
+    });
+    
     const target = wrapper.querySelector(`[data-tier="${tier}"]`);
+    log('🎯 Target section for', tier, ':', !!target);
+    
     if (target) {
       target.style.display = 'block';
       target.style.setProperty('display','block','important');
+      target.style.visibility = 'visible';
+      target.style.setProperty('visibility','visible','important');
+      
+      log('✅ Showing section:', tier);
+      log('  - display:', target.style.display);
+      log('  - computed display:', window.getComputedStyle(target).display);
+      log('  - visibility:', target.style.visibility);
+      log('  - computed visibility:', window.getComputedStyle(target).visibility);
+      
+      // Force wrapper to be visible too
+      wrapper.style.visibility = 'visible';
+      wrapper.style.setProperty('visibility','visible','important');
+      wrapper.style.setProperty('display','block','important');
     } else {
+      warn('❌ No target section found for tier:', tier);
+      log('Available tiers:', Array.from(all).map(s => s.dataset.tier));
       all.forEach(s => s.style.removeProperty('display'));
     }
     updateBar(target || null, tier);
-    isProcessing = false;
   }
 
   function boot(wrapper){
