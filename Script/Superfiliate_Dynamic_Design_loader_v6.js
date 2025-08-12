@@ -2,7 +2,7 @@
   'use strict';
 
   /* ========= CONFIG ========= */
-  const INIT_DELAY        = 320;
+  const INIT_DELAY        = 420;
   const STYLE_ID          = 'hx25-horizontal-layout-v5';
   const BTN_SELECTOR      = '.hx25-button, .hx25-btn, [data-hx25-btn], #hx25-button';
   const VIDEO_SRC         = 'https://i.imgur.com/1zJtkCw.mp4';
@@ -46,7 +46,9 @@
   transition:transform .2s ease, box-shadow .2s ease, filter .2s ease;
   user-select:none; outline:none;
 }
-.hx25-button.hx25-has-video, .hx25-btn.hx25-has-video{ background:transparent; }
+.hx25-button.hx25-has-video, .hx25-btn.hx25-has-video{ 
+  background:linear-gradient(135deg,#0b2f66 0%,#164a7f 28%,#2c6aa3 55%,#5b9bd5 78%,#a8c7e6 100%); 
+}
 .hx25-button:hover, .hx25-btn:hover{
   transform:translateY(-1px) scale(1.01);
   box-shadow:0 12px 30px rgba(11,47,102,.48);
