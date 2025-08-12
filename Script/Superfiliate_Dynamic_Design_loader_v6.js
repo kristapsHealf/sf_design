@@ -898,9 +898,11 @@
 
   function boot(wrapper){
     log('🚀 Starting boot process...');
+    log('🔍 isProcessing flag value:', isProcessing);
     if (isProcessing) {
       warn('⚠️ Already processing, skipping boot');
-      return;
+      warn('🔧 FORCING RESET OF isProcessing FLAG');
+      isProcessing = false;
     }
     
     const vars = readVars();
