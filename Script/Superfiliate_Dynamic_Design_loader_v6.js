@@ -8,7 +8,7 @@
   const VIDEO_SRC         = 'https://i.imgur.com/1zJtkCw.mp4';
   const LOGO_SRC          = 'https://cdn.shopify.com/s/files/1/0405/7291/1765/files/Group_10879850.svg?v=1754920813';
   const LABEL_TEXT        = 'Generate your unique referral link';
-  const DEFAULT_LINK      = 'https://www.eventbrite.com/e/healf-experience-tickets-1545147591039?aff=482504953';
+  const DEFAULT_LINK      = 'https://www.eventbrite.com/e/healf-experience-tickets-1545147591039?';
   const DISABLE_FLAG      = '__HX25_DISABLE__';
   const TARGETS           = { rise: 500, radiate: 2500, empower: null };
   const DEBUG             = false; // Force enable extensive logging
@@ -223,12 +223,23 @@
     return '';
   }
 
-  // Simple webhook call that updates tracker
+  // Simple webhook call that updates tracker - using simple GET to avoid CORS preflight
   function callStatsAPI(code) {
     try {
       log('📊 Calling stats API with code:', code);
       const url = `${STATS_API_URL}?code=${encodeURIComponent(code)}`;
-      fetch(url).then(res => res.json()).then(data => {
+      
+      // Simple GET request with no custom headers to avoid CORS preflight
+      fetch(url, {
+        method: 'GET',
+        mode: 'cors',
+        cache: 'no-cache'
+      }).then(res => {
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+        }
+        return res.json();
+      }).then(data => {
         log('✅ Stats API response:', data);
         
         // Update tracker with reffCounts
@@ -238,9 +249,15 @@
         
       }).catch(err => {
         warn('❌ Stats API failed:', err);
+        
+        // Fallback: continue with tracker showing 0 referrals
+        log('🔄 Continuing with 0 referrals as fallback');
+        updateTrackerWithCount(0);
       });
     } catch(e) {
       err('❌ Stats API call error:', e);
+      // Fallback: continue with tracker showing 0 referrals
+      updateTrackerWithCount(0);
     }
   }
 
