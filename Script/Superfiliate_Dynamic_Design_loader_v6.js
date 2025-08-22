@@ -7,17 +7,29 @@
   const BTN_SELECTOR      = '.hx25-button, .hx25-btn, [data-hx25-btn], #hx25-button';
   const VIDEO_SRC         = 'https://i.imgur.com/1zJtkCw.mp4';
   const LOGO_SRC          = 'https://cdn.shopify.com/s/files/1/0405/7291/1765/files/Group_10879850.svg?v=1754920813';
+  const STOREFRONT_LOGO   = 'https://i.imgur.com/I8q0MKx.png';
+  const STOREFRONT_LABEL  = 'Click here to edit your storefront';
   const LABEL_TEXT        = 'Generate your unique referral link';
   const DEFAULT_LINK      = 'https://www.eventbrite.com/e/healf-experience-tickets-1545147591039?';
   const DISABLE_FLAG      = '__HX25_DISABLE__';
-  const TARGETS           = { rise: 500, radiate: 2500, empower: null };
-  const DEBUG             = false; // Force enable extensive logging
+
+  const TARGETS = { rise: 500, radiate: 2500, empower: null, practitioner: null, vip: null }; // --- NEW: VIP
+  const DEBUG             = true; // Force enable extensive logging
   const VERBOSE           = false; // Extra detailed logging
-  
+
   // Tracker config
   const TRACKER_CIRCLES   = 3; // Number of referral circles
   const MOCK_REFERRALS    = 0; // Mock data - completed referrals (0-3)
   const STATS_API_URL     = 'https://aiwellbeing.app.n8n.cloud/webhook/aff/stats';
+  const SSO_API_URL       = 'https://aiwellbeing.app.n8n.cloud/webhook/cc/sso';
+
+  // Theme tokens (match your tier card gradients)
+  const TIER_THEMES = {
+    rise:     { grad: 'linear-gradient(90deg, #F97644 8%, #EA3507 91.77%)',  sh: 'rgba(234,53,7,.35)',  shH: 'rgba(234,53,7,.48)' },
+    radiate:  { grad: 'linear-gradient(90deg, #EDB278 8%, #DA701B 91.77%)', sh: 'rgba(218,112,27,.35)', shH: 'rgba(218,112,27,.48)' },
+    empower:  { grad: 'linear-gradient(90deg, #9BB7DC 8%, #3B77BB 91.77%)', sh: 'rgba(59,119,187,.35)', shH: 'rgba(59,119,187,.48)' },
+    vip:      { grad: 'linear-gradient(90deg, #498A6D 8%, #0E4027 91.77%)', sh: 'rgba(14,64,39,.35)',  shH: 'rgba(14,64,39,.48)' }
+  };
 
   const log  = (...a) => { if (DEBUG) try { console.log('[HX25]', ...a); } catch(_){} };
   const warn = (...a) => { if (DEBUG) try { console.warn('[HX25]', ...a); } catch(_){} };
@@ -30,13 +42,12 @@
   /* ========= STYLE ========= */
   function injectStyles() {
     log('🎨 Injecting styles...');
-    if (document.getElementById(STYLE_ID)) {
-      log('✅ Styles already injected');
-      return;
+    let s = document.getElementById(STYLE_ID);
+    if (!s) {
+      s = document.createElement('style');
+      s.id = STYLE_ID;
+      document.head.appendChild(s);
     }
-    const s = document.createElement('style');
-    s.id = STYLE_ID;
-    log('📝 Creating style element with ID:', STYLE_ID);
     s.textContent = `
 /* Divider under main card (no visible line) */
 .hx25-divider-block{ margin-top:16px; padding-top:0; border-top:0; }
@@ -93,17 +104,17 @@
 .hx25-layer{
   position:relative; z-index:3;
   display:flex; flex-direction:row; align-items:center; justify-content:space-between;
-  padding:10px 16px; /* slimmer padding */
+  padding:10px 16px;
 }
 .hx25-logo{
-  display:block; height:45px; width:auto; order:1; /* left side */
+  display:block; height:45px; width:auto; order:1;
   filter:drop-shadow(0 1px 1px rgba(0,0,0,.25));
 }
 .hx25-label{
   font-family:'Avenir', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   font-size:18px; font-weight:800; line-height:1.2; letter-spacing:.3px;
   text-shadow:0 1px 1px rgba(0,0,0,.25); text-align:center;
-  order:2; flex:1; /* center, takes remaining space */
+  order:2; flex:1;
 }
 @media (max-width:420px){
   .hx25-label{ font-size:16px }
@@ -126,6 +137,78 @@
 
 @media (prefers-reduced-motion: reduce){
   .hx25-shine{ animation:none }
+}
+
+/* Storefront Button — themable by tier */
+.hx25-storefront-button{
+  position:relative; display:block !important; width:100%;
+  min-height:48px !important; border:0 !important; border-radius:14px !important; overflow:hidden; cursor:pointer;
+  background:#FF4438 !important; /* fallback, gets overridden by tier class */
+  color:#fff !important; box-shadow:0 6px 22px rgba(255,68,56,.35);
+  transition:transform .2s ease, box-shadow .2s ease, filter .2s ease;
+  user-select:none; outline:none;
+  margin-top:12px;
+}
+.hx25-storefront-button:hover{
+  transform:translateY(-1px) scale(1.01);
+  box-shadow:0 12px 30px rgba(255,68,56,.48);
+}
+.hx25-storefront-layer{
+  position:relative; z-index:3;
+  display:flex; flex-direction:row; align-items:center; justify-content:space-between;
+  padding:8px 12px; gap:8px;
+}
+.hx25-storefront-logo{
+  display:block; height:20px; width:100px; max-height:20px; max-width:100px; order:1;
+  flex:0 0 100px; object-fit:contain;
+  filter:drop-shadow(0 1px 1px rgba(0,0,0,.2));
+}
+.hx25-storefront-label{
+  font-family:'Avenir', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size:14px; font-weight:400; line-height:1.2; letter-spacing:.3px;
+  text-align:center; color:#fff; order:2; flex:1;
+}
+@media (max-width:420px){
+  .hx25-storefront-label{ font-size:16px }
+  .hx25-storefront-layer{ padding:6px 10px }
+  .hx25-storefront-logo{ height:32px; width:140px; max-height:32px; max-width:140px; flex:0 0 140px }
+}
+
+/* --- THEME VARIANTS: match tier cards --- */
+.hx25-storefront-button.tier-rise{
+  background: linear-gradient(90deg, #F97644 8%, #EA3507 91.77%) !important;
+  box-shadow: 0 6px 22px rgba(234,53,7,.35);
+}
+.hx25-storefront-button.tier-rise:hover{
+  box-shadow: 0 12px 30px rgba(234,53,7,.48);
+}
+.hx25-storefront-button.tier-radiate{
+  background: linear-gradient(90deg, #EDB278 8%, #DA701B 91.77%) !important;
+  box-shadow: 0 6px 22px rgba(218,112,27,.35);
+}
+.hx25-storefront-button.tier-radiate:hover{
+  box-shadow: 0 12px 30px rgba(218,112,27,.48);
+}
+.hx25-storefront-button.tier-empower{
+  background: linear-gradient(90deg, #9BB7DC 8%, #3B77BB 91.77%) !important;
+  box-shadow: 0 6px 22px rgba(59,119,187,.35);
+}
+.hx25-storefront-button.tier-empower:hover{
+  box-shadow: 0 12px 30px rgba(59,119,187,.48);
+}
+.hx25-storefront-button.tier-vip{
+  background: linear-gradient(90deg, #498A6D 8%, #0E4027 91.77%) !important;
+  box-shadow: 0 6px 22px rgba(14,64,39,.35);
+}
+.hx25-storefront-button.tier-vip:hover{
+  box-shadow: 0 12px 30px rgba(14,64,39,.48);
+}
+.hx25-storefront-button.tier-practitioner{ /* --- NEW: Practitioner */
+  background: linear-gradient(90deg, #AAABC0 8%, #6D6C96 91.77%) !important;
+  box-shadow: 0 6px 22px rgba(109,108,150,.35);
+}
+.hx25-storefront-button.tier-practitioner:hover{ /* --- NEW: Practitioner */
+  box-shadow: 0 12px 30px rgba(109,108,150,.48);
 }
 
 /* Referral Tracker - 20% shorter */
@@ -201,8 +284,7 @@
   .hx25-unlock-indicator{ font-size:11px; padding:5px 10px }
 }
 `;
-    document.head.appendChild(s);
-    log('✅ Styles injected successfully');
+    log('✅ Styles injected/updated successfully');
   }
 
   /* ========= HELPERS ========= */
@@ -223,13 +305,23 @@
     return '';
   }
 
+  function getEmail(wrapper){
+    try {
+      const scoped = wrapper?.querySelector?.('#sf-email'); // ✅ fixed: use #sf-email
+      const el = scoped || document.getElementById('sf-email');
+      const text = el?.textContent?.trim() || '';
+      if (text) return text;
+    } catch(_){ }
+    try { if (window.SF_EMAIL) return String(window.SF_EMAIL); } catch(_){ }
+    return '';
+  }
+
   // Simple webhook call that updates tracker - using simple GET to avoid CORS preflight
   function callStatsAPI(code) {
     try {
       log('📊 Calling stats API with code:', code);
       const url = `${STATS_API_URL}?code=${encodeURIComponent(code)}`;
-      
-      // Simple GET request with no custom headers to avoid CORS preflight
+
       fetch(url, {
         method: 'GET',
         mode: 'cors',
@@ -241,22 +333,14 @@
         return res.json();
       }).then(data => {
         log('✅ Stats API response:', data);
-        
-        // Update tracker with reffCounts
         const reffCounts = parseInt(data.reffCounts) || 0;
-        log('🎯 Updating tracker with reffCounts:', reffCounts);
         updateTrackerWithCount(reffCounts);
-        
       }).catch(err => {
         warn('❌ Stats API failed:', err);
-        
-        // Fallback: continue with tracker showing 0 referrals
-        log('🔄 Continuing with 0 referrals as fallback');
         updateTrackerWithCount(0);
       });
     } catch(e) {
       err('❌ Stats API call error:', e);
-      // Fallback: continue with tracker showing 0 referrals
       updateTrackerWithCount(0);
     }
   }
@@ -271,19 +355,12 @@
 
     const circles = tracker.querySelectorAll('.hx25-circle');
     const indicator = tracker.querySelector('.hx25-unlock-indicator');
-    
-    log('🔄 Updating', circles.length, 'circles with count:', count);
-    
-    // Update circles
+
     circles.forEach((circle, index) => {
-      if (index < count) {
-        circle.classList.add('completed');
-      } else {
-        circle.classList.remove('completed');
-      }
+      if (index < count) circle.classList.add('completed');
+      else circle.classList.remove('completed');
     });
 
-    // Update indicator
     if (indicator) {
       if (count >= TRACKER_CIRCLES) {
         indicator.textContent = '🎟️ Free Ticket!';
@@ -294,8 +371,6 @@
         indicator.classList.remove('unlocked');
       }
     }
-    
-    log('✅ Tracker updated successfully');
   }
 
   function readVars(){
@@ -308,13 +383,15 @@
   }
 
   function pickTier({ rawName, revenue }){
-    const n = rawName.toLowerCase();    
+    const n = rawName.toLowerCase();
+    if (n.includes('vip') || n.includes('green')) return 'vip';
+    if (n.includes('practitioner')) return 'practitioner';    
     if (n.includes('empower') || n.includes('t3')) return 'empower';
     if (n.includes('radiate') || n.includes('t2')) return 'radiate';
     if (n.includes('rise')    || n.includes('t1')) return 'rise';
     if (revenue >= 2500) return 'empower';
     if (revenue >=  500) return 'radiate';
-      return 'rise';
+    return 'rise';
   }
 
   function updateBar(section, tier){
@@ -339,10 +416,8 @@
 
   /* ========= BUTTON (video, fg, a11y, copy) ========= */
   function ensureVideo(btn){
-    verbose('🎬 Ensuring video for button:', btn);
     let vid = btn.querySelector('.hx25-video');
     if (!vid){
-      log('📹 Creating new video element');
       vid = document.createElement('video');
       vid.className = 'hx25-video';
       vid.muted = true; vid.setAttribute('muted','');
@@ -354,38 +429,17 @@
       src.src = VIDEO_SRC; src.type = 'video/mp4';
       vid.appendChild(src);
       btn.insertBefore(vid, btn.firstChild);
-      log('✅ Video element created and inserted');
-    } else {
-      verbose('✅ Video element already exists');
     }
     const tryPlay = () => {
-      verbose('▶️ Attempting to play video...');
       const p = vid.play && vid.play();
       if (p && p.then) {
-        p.then(() => {
-          log('✅ Video playing successfully');
-          btn.classList.add('hx25-has-video');
-        }).catch((e) => {
-          warn('❌ Video play blocked:', e);
-        });
+        p.then(() => { btn.classList.add('hx25-has-video'); }).catch(() => {});
       }
     };
-    vid.addEventListener('loadeddata', () => {
-      log('📊 Video loadeddata event fired');
-      btn.classList.add('hx25-has-video');
-    });
-    vid.addEventListener('canplay', () => {
-      log('▶️ Video canplay event fired');
-      btn.classList.add('hx25-has-video');
-    });
-    vid.addEventListener('playing', () => {
-      log('🎬 Video playing event fired');
-      btn.classList.add('hx25-has-video');
-    });
-    vid.addEventListener('error', () => {
-      err('❌ Video error event fired');
-      btn.classList.remove('hx25-has-video');
-    });
+    vid.addEventListener('loadeddata', () => btn.classList.add('hx25-has-video'));
+    vid.addEventListener('canplay', () => btn.classList.add('hx25-has-video'));
+    vid.addEventListener('playing', () => btn.classList.add('hx25-has-video'));
+    vid.addEventListener('error', () => btn.classList.remove('hx25-has-video'));
 
     ['pointerenter','click','touchstart','keydown'].forEach(evt => {
       btn.addEventListener(evt, tryPlay, { once:true, passive:true });
@@ -415,159 +469,77 @@
   }
 
   function ensureForeground(btn){
-    verbose('🎯 Ensuring foreground elements for button:', btn);
     let layer = btn.querySelector('.hx25-layer');
     if (!layer){
-      log('📦 Creating new layer element');
       layer = document.createElement('div');
       layer.className = 'hx25-layer';
       btn.appendChild(layer);
-    } else {
-      verbose('✅ Layer element already exists');
     }
 
-    // Remove any old multi-line structure
     const oldLines = layer.querySelector('.hx25-lines');
-    if (oldLines) {
-      log('🗑️ Removing old two-line structure');
-      oldLines.remove();
-    }
+    if (oldLines) oldLines.remove();
     const oldLabels = layer.querySelectorAll('.hx25-label-1, .hx25-label-2');
     oldLabels.forEach(label => label.remove());
 
     // Logo (left side)
     let logo = layer.querySelector('.hx25-logo');
     if (!logo){
-      log('🖼️ Creating logo element (45px, left corner)');
       logo = document.createElement('img');
       logo.className = 'hx25-logo';
       logo.alt = 'HX25';
       logo.decoding = 'async';
       logo.loading  = 'eager';
       logo.src = LOGO_SRC;
-      logo.addEventListener('load', () => log('✅ Logo loaded successfully'));
-      logo.addEventListener('error', () => err('❌ Logo failed to load'));
       layer.appendChild(logo);
     }
 
     // Single-line label (center)
     let label = layer.querySelector('.hx25-label');
     if (!label){
-      log('🏷️ Creating single-line label with Avenir font:', LABEL_TEXT);
       label = document.createElement('span');
       label.className = 'hx25-label';
       layer.appendChild(label);
     }
     label.textContent = LABEL_TEXT;
-    
-    log('✅ Foreground elements complete - horizontal layout');
   }
 
   function attachLinkAndA11y(btn, host){
-    log('🔗 Attaching link and accessibility for button:', btn);
-    
     let href = btn.getAttribute('data-hx-link')
       || host.getAttribute('data-hx-link')
       || window.HX25_LINK
       || DEFAULT_LINK;
-    
-    verbose('📄 Button data-hx-link:', btn.getAttribute('data-hx-link'));
-    verbose('📄 Host data-hx-link:', host.getAttribute('data-hx-link'));
-    verbose('🌐 Window HX25_LINK:', window.HX25_LINK);
-    verbose('🔗 Base href before code:', href);
 
     const code = getCode(host.closest('#sf-campaign-wrapper')) || 'DEFAULT_CODE';
     href = withQueryParam(href, 'aff', code);
-    
-    log('🎯 Code found:', code);
-    log('🔗 Final href with code:', href);
 
-    log('🔍 Checking if button needs linking. __hxLinked:', btn.__hxLinked);
     if (!btn.__hxLinked){
-      log('🆕 Adding click event listener to button');
       btn.addEventListener('click', async (e) => {
-        if (e.__isTest) {
-          log('✅ TEST CLICK DETECTED - Click handler is working!');
-          return;
-        }
-        
-        log('🖱️ BUTTON CLICKED! Starting copy process...');
+        if (e.__isTest) return;
         e.stopPropagation(); e.preventDefault();
-        
-        if (btn.__copyLock) {
-          warn('🔒 Copy already in progress, ignoring click');
-          return;
-        }
-        
-        log('🔓 Setting copy lock');
+
+        if (btn.__copyLock) return;
         btn.__copyLock = true;
 
-        // Step 1: Copy to clipboard
         try { 
           if (href && navigator.clipboard?.writeText) {
-            log('📋 Attempting to copy to clipboard:', href);
             await navigator.clipboard.writeText(String(href));
-            log('✅ Successfully copied to clipboard!');
-          } else {
-            warn('❌ Clipboard API not available or no href');
           }
-        } catch(ex){
-          err('❌ Clipboard write failed:', ex);
-        }
+        } catch(ex){}
 
-        // Step 2: Clean up existing feedback
-        log('🧹 Cleaning up existing feedback elements...');
         try { 
           const existingElements = btn.querySelectorAll('.hx25-copy-flash, .hx25-copied-note');
-          log('Found', existingElements.length, 'existing feedback elements');
-          existingElements.forEach((n, i) => {
-            try { 
-              log('Removing element', i, ':', n.className);
-              n.remove(); 
-            } catch(e){
-              warn('Failed to remove element', i, ':', e);
-            }
-          }); 
-        } catch(e){
-          warn('Failed during cleanup:', e);
-        }
+          existingElements.forEach(n => n.remove());
+        } catch(_){}
 
-        // Step 3: Create flash effect
-        log('✨ Creating flash effect...');
         try {
           const flash = document.createElement('span');
           flash.className = 'hx25-copy-flash';
-          log('Flash element created, appending to button...');
           btn.appendChild(flash);
-          log('✅ Flash element appended successfully');
-          
-          // Auto-cleanup flash
-          setTimeout(() => { 
-            log('🕐 Flash timeout triggered, removing...');
-            try { 
-              if (flash.parentNode) {
-                flash.remove();
-                log('✅ Flash removed successfully');
-              } else {
-                log('⚠️ Flash has no parent node');
-              }
-            } catch(e){
-              warn('❌ Failed to remove flash:', e);
-            } 
-          }, 600);
-        } catch(ex){
-          err('❌ Flash creation failed:', ex);
-        }
+          setTimeout(() => { try { flash.remove(); } catch(_){ } }, 600);
+        } catch(_){}
 
-        // Step 4: Create checkmark note
-        log('✓ Creating checkmark note...');
         try {
-          const noteHost = btn.querySelector('.hx25-label') ||
-                          btn.querySelector('.hx25-layer') ||
-                          btn;
-          
-          log('Note host found:', noteHost?.className || 'button itself');
-          
+          const noteHost = btn.querySelector('.hx25-label') || btn.querySelector('.hx25-layer') || btn;
           if (noteHost) {
             const note = document.createElement('span');
             note.className = 'hx25-copied-note';
@@ -577,37 +549,12 @@
             note.style.color = '#ffffff';
             note.style.fontWeight = 'bold';
             note.style.fontSize = '12px';
-            log('Note element created, appending to host...');
             noteHost.appendChild(note);
-            log('✅ Note appended successfully');
-            
-            // Auto-cleanup note
-            setTimeout(() => { 
-              log('🕐 Note timeout triggered, removing...');
-              try { 
-                if (note.parentNode) {
-                  note.remove();
-                  log('✅ Note removed successfully');
-                } else {
-                  log('⚠️ Note has no parent node');
-                }
-              } catch(e){
-                warn('❌ Failed to remove note:', e);
-              } 
-            }, 900);
-          } else {
-            err('❌ No note host found!');
+            setTimeout(() => { try { note.remove(); } catch(_){ } }, 900);
           }
-        } catch(ex){
-          err('❌ Note creation failed:', ex);
-        }
+        } catch(_){}
 
-        // Step 5: Reset lock
-        log('🔓 Setting timeout to reset copy lock...');
-        setTimeout(() => { 
-          btn.__copyLock = false;
-          log('✅ Copy lock reset');
-        }, 1000);
+        setTimeout(() => { btn.__copyLock = false; }, 1000);
       }, { passive:false });
 
       if (btn.tagName !== 'BUTTON'){
@@ -621,22 +568,14 @@
         }
       }
       btn.__hxLinked = true;
-      log('✅ Button linked successfully');
-      
-      // Test click handler
+
       setTimeout(() => {
-        log('🧪 Testing click handler attachment...');
         const testEvent = new Event('click', { bubbles: true, cancelable: true });
         testEvent.__isTest = true;
         btn.dispatchEvent(testEvent);
       }, 100);
-      
     } else {
-      warn('⚠️ Button already linked, skipping click handler attachment');
-      
-      // Still test if existing handler works
       setTimeout(() => {
-        log('🧪 Testing existing click handler...');
         const testEvent = new Event('click', { bubbles: true, cancelable: true });
         testEvent.__isTest = true;
         btn.dispatchEvent(testEvent);
@@ -645,11 +584,175 @@
   }
 
   /* ========= REFERRAL TRACKER ========= */
+  function resolveAbsoluteUrl(raw){
+    try {
+      if (!raw) return '';
+      if (/^https?:\/\//i.test(raw)) return String(raw);
+      if (/^\/\//.test(raw)) return location.protocol + raw;
+      return new URL(String(raw), location.href).toString();
+    } catch(_){ return ''; }
+  }
+
+  async function fetchSSOUrlWith(method, email){
+    const url = `${SSO_API_URL}` + (method === 'GET' ? `?${new URLSearchParams({ email }).toString()}` : '');
+    const opts = {
+      method,
+      mode: 'cors',
+      cache: 'no-cache',
+    };
+    if (method === 'POST') {
+      opts.body = new URLSearchParams({ email });
+    }
+    const res = await fetch(url, opts);
+    if (res.redirected && res.url) {
+      return res.url;
+    }
+    if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+    let data;
+    try { data = await res.json(); }
+    catch(_) { data = await res.text(); }
+    const targetUrl = typeof data === 'string' ? data : (data?.url || data?.redirect || data?.link || data?.location);
+    return targetUrl || '';
+  }
+
+  async function callSSOApi(email){
+    try {
+      const target = await fetchSSOUrlWith('POST', email);
+      return resolveAbsoluteUrl(target);
+    } catch(e){
+      err('❌ SSO API failed:', e);
+      return '';
+    }
+  }
+
+  // Apply correct theme class to the storefront button based on section tier
+  function themeStorefrontButton(btn, sectionOrTier){
+    const tier = (typeof sectionOrTier === 'string' ? sectionOrTier : (sectionOrTier?.getAttribute?.('data-tier') || '')).toLowerCase();
+    btn.classList.remove('tier-rise','tier-radiate','tier-empower','tier-practitioner','tier-vip');
+    if (tier === 'empower')      btn.classList.add('tier-empower');
+    else if (tier === 'radiate') btn.classList.add('tier-radiate');
+    else if (tier === 'practitioner') btn.classList.add('tier-practitioner');
+    else if (tier === 'vip')     btn.classList.add('tier-vip');
+    else                         btn.classList.add('tier-rise'); // default
+  }
+
+  function attachStorefrontHandler(btn, wrapper){
+    if (btn.__hxSSO) return;
+    btn.addEventListener('click', async (e) => {
+      e.preventDefault(); e.stopPropagation();
+      if (btn.__ssoLock) return;
+      const email = getEmail(wrapper);
+      if (!email) { warn('⚠️ No sf_email found for SSO'); return; }
+      const WIN_NAME = 'hx25_storefront_sso_' + Date.now();
+      let pendingWin = null;
+      try { pendingWin = window.open('', WIN_NAME); } catch(_){ }
+      btn.__ssoLock = true;
+      const labelEl = btn.querySelector('.hx25-storefront-label');
+      const prevText = labelEl?.textContent || '';
+      try {
+        if (labelEl) labelEl.textContent = 'Connecting…';
+        btn.classList.add('is-loading');
+        btn.style.opacity = '0.85';
+        btn.disabled = true;
+        btn.setAttribute('aria-busy','true');
+      } catch(_){ }
+      const target = await callSSOApi(email);
+      try {
+        if (labelEl) labelEl.textContent = prevText;
+        btn.classList.remove('is-loading');
+        btn.style.opacity = '';
+        btn.disabled = false;
+        btn.removeAttribute('aria-busy');
+      } catch(_){ }
+      btn.__ssoLock = false;
+      if (target && /^https?:/i.test(target)) {
+        const navigate = () => {
+          if (pendingWin) {
+            try {
+              try { pendingWin.opener = null; } catch(_){ }
+              pendingWin.location.replace(target);
+              try { pendingWin.focus && pendingWin.focus(); } catch(_){ }
+            } catch(_){
+              window.open(target, '_blank', 'noopener,noreferrer');
+            }
+          } else {
+            window.open(target, '_blank', 'noopener,noreferrer');
+          }
+        };
+        setTimeout(navigate, 150);
+      } else {
+        try {
+          const form = document.createElement('form');
+          form.method = 'POST';
+          form.action = SSO_API_URL;
+          form.style.display = 'none';
+          form.target = pendingWin ? WIN_NAME : '_blank';
+          const input = document.createElement('input');
+          input.type = 'hidden';
+          input.name = 'email';
+          input.value = email;
+          form.appendChild(input);
+          document.body.appendChild(form);
+          warn('⚠️ Using POST form fallback to SSO webhook');
+          form.submit();
+          if (!pendingWin) { try { document.body.removeChild(form); } catch(_){ } }
+        } catch(ex){
+          err('❌ Failed POST form fallback:', ex);
+          if (pendingWin) { try { pendingWin.close(); } catch(_){ } }
+        }
+      }
+    }, { passive:false });
+    btn.__hxSSO = true;
+  }
+
+  function createStorefrontButton(){
+    const btn = document.createElement('button');
+    btn.className = 'hx25-storefront-button';
+    btn.setAttribute('aria-label', 'Click here to customise your storefront');
+    btn.type = 'button';
+    // Keep sizing guardrails, but DO NOT force background/color inline (let theme classes win)
+    try {
+      btn.style.setProperty('display', 'block', 'important');
+      btn.style.setProperty('width', '100%', 'important');
+      btn.style.setProperty('min-height', '48px', 'important');
+      btn.style.setProperty('border', '0', 'important');
+      btn.style.setProperty('border-radius', '14px', 'important');
+      // background / color intentionally omitted so tier class can control them
+      btn.style.setProperty('margin-top', '12px', 'important');
+    } catch(_){}
+
+    const layer = document.createElement('div');
+    layer.className = 'hx25-storefront-layer';
+    btn.appendChild(layer);
+
+    const logo = document.createElement('img');
+    logo.className = 'hx25-storefront-logo';
+    logo.alt = 'Storefront';
+    logo.decoding = 'async';
+    logo.loading = 'eager';
+    logo.src = STOREFRONT_LOGO;
+    try {
+      logo.style.setProperty('height', '40px', 'important');
+      logo.style.setProperty('width', '150px', 'important');
+      logo.style.setProperty('max-height', '40px', 'important');
+      logo.style.setProperty('max-width', '150px', 'important');
+      logo.style.setProperty('flex', '0 0 200px', 'important');
+      logo.style.setProperty('object-fit', 'contain', 'important');
+      logo.style.setProperty('display', 'inline-block', 'important');
+    } catch(_){ }
+    layer.appendChild(logo);
+
+    const label = document.createElement('span');
+    label.className = 'hx25-storefront-label';
+    label.textContent = STOREFRONT_LABEL;
+    layer.appendChild(label);
+
+    return btn;
+  }
+
   function ensureTrackerVideo(tracker){
-    verbose('🎬 Ensuring tracker video:', tracker);
     let vid = tracker.querySelector('.hx25-tracker-video');
     if (!vid){
-      log('📹 Creating tracker video element');
       vid = document.createElement('video');
       vid.className = 'hx25-tracker-video';
       vid.muted = true; vid.setAttribute('muted','');
@@ -661,68 +764,59 @@
       src.src = VIDEO_SRC; src.type = 'video/mp4';
       vid.appendChild(src);
       tracker.insertBefore(vid, tracker.firstChild);
-      log('✅ Tracker video created');
     }
-    
     const tryPlay = () => {
       const p = vid.play && vid.play();
-      if (p && p.then) p.then(() => log('✅ Tracker video playing')).catch(() => {});
+      if (p && p.then) p.then(() => {}).catch(() => {});
     };
-    
     vid.addEventListener('loadeddata', tryPlay);
     vid.addEventListener('canplay', tryPlay);
     tryPlay();
   }
 
   function createTracker(completedReferrals = MOCK_REFERRALS){
-    log('🎯 Creating referral tracker with', completedReferrals, 'completed referrals');
-    
     const tracker = document.createElement('div');
     tracker.className = 'hx25-tracker';
-    
+
     // Background video
     ensureTrackerVideo(tracker);
-    
+
     // Scrim overlay
     const scrim = document.createElement('div');
     scrim.className = 'hx25-tracker-scrim';
     tracker.appendChild(scrim);
-    
+
     // Content container
     const content = document.createElement('div');
     content.className = 'hx25-tracker-content';
     tracker.appendChild(content);
-    
+
     // Title
     const title = document.createElement('div');
     title.className = 'hx25-tracker-title';
     title.textContent = 'Referral Progress';
     content.appendChild(title);
-    
+
     // Main container (circles + indicator)
     const main = document.createElement('div');
     main.className = 'hx25-tracker-main';
     content.appendChild(main);
-    
-    // Circles container
+
+    // Circles
     const circles = document.createElement('div');
     circles.className = 'hx25-tracker-circles';
     main.appendChild(circles);
-    
-    // Create circles
+
     for (let i = 0; i < TRACKER_CIRCLES; i++) {
       const circle = document.createElement('div');
       circle.className = 'hx25-circle';
-      if (i < completedReferrals) {
-        circle.classList.add('completed');
-      }
+      if (i < completedReferrals) circle.classList.add('completed');
       circles.appendChild(circle);
     }
-    
-    // Unlock indicator (to the right of circles)
+
+    // Unlock indicator
     const indicator = document.createElement('div');
     indicator.className = 'hx25-unlock-indicator';
-    
     if (completedReferrals >= TRACKER_CIRCLES) {
       indicator.textContent = '🎟️ Free Ticket!';
       indicator.classList.add('unlocked');
@@ -730,83 +824,55 @@
       const remaining = TRACKER_CIRCLES - completedReferrals;
       indicator.textContent = `${remaining} more for free ticket`;
     }
-    
     main.appendChild(indicator);
-    
-    // Animate in
-    setTimeout(() => {
-      indicator.classList.add('visible');
-    }, 300);
-    
+
+    setTimeout(() => { indicator.classList.add('visible'); }, 300);
+
     return tracker;
   }
 
   /* ========= PLACE BUTTON BELOW CARD ========= */
   function ensureButtonBlockBelow(section){
-    log('🏗️ Ensuring button block below section:', section?.getAttribute('data-tier') || 'unknown');
-    if (!section || !section.parentNode) {
-      err('❌ No section or parent node provided');
-      return null;
-    }
+    if (!section || !section.parentNode) return null;
 
     let block = section.nextElementSibling && section.nextElementSibling.classList?.contains('hx25-divider-block')
       ? section.nextElementSibling
       : null;
 
-    if (block) {
-      verbose('✅ Found existing block next to section');
-    } else {
-      log('🔍 No block found next to section, searching for existing block...');
+    if (!block){
       block = document.querySelector('.hx25-divider-block[data-tier-owner="true"]');
       if (block) {
-        log('📦 Found existing block elsewhere, moving it...');
         if (block.previousElementSibling !== section) {
           section.insertAdjacentElement('afterend', block);
-          log('✅ Block moved to correct position');
         }
       }
     }
-    
+
     if (!block){
-      log('🆕 Creating new divider block...');
       block = document.createElement('div');
       block.className = 'hx25-divider-block';
       block.setAttribute('data-tier-owner','true');
       section.insertAdjacentElement('afterend', block);
-      log('✅ New block created and positioned');
     }
 
     let host = block.querySelector('.hx25-btn-host');
     if (!host){
-      log('🏠 Creating button host container...');
       host = document.createElement('div');
       host.className = 'hx25-btn-host';
       block.appendChild(host);
-    } else {
-      verbose('✅ Button host already exists');
     }
 
-    log('🔍 Looking for existing button...');
     let btn = host.querySelector(BTN_SELECTOR) || section.querySelector(BTN_SELECTOR);
-    if (btn && btn.parentElement !== host) {
-      log('📦 Moving existing button to host...');
-      host.appendChild(btn);
-    }
+    if (btn && btn.parentElement !== host) host.appendChild(btn);
     if (!btn){
-      log('🆕 Creating new button element...');
       btn = document.createElement('button');
       btn.id = 'hx25-button';
       host.appendChild(btn);
-      log('✅ New button created');
-    } else {
-      log('✅ Using existing button:', btn.id || btn.className);
     }
 
-    log('🏷️ Adding button classes and attributes...');
     btn.classList.add('hx25-button','hx25-btn');
     btn.setAttribute('aria-label','HX25 Referral Link');
 
-    log('🎬 Setting up button components...');
     ensureVideo(btn);
     ensureLayer(btn, 'hx25-scrim');
     ensureLayer(btn, 'hx25-shine');
@@ -816,15 +882,34 @@
     // Add tracker below button
     let tracker = host.querySelector('.hx25-tracker');
     if (!tracker) {
-      log('🎯 Adding referral tracker below button...');
       tracker = createTracker();
       host.appendChild(tracker);
-    } else {
-      verbose('✅ Tracker already exists');
     }
 
-    log('✅ Button block and tracker setup complete');
-    return { block, btn, tracker };
+    // Add storefront button below tracker
+    let storefrontBtn = host.querySelector('.hx25-storefront-button');
+    if (!storefrontBtn) {
+      storefrontBtn = createStorefrontButton();
+      if (tracker && tracker.parentNode === host) {
+        host.insertBefore(storefrontBtn, tracker.nextSibling);
+      } else {
+        host.appendChild(storefrontBtn);
+      }
+    } else {
+      // Ensure storefront button appears after tracker
+      if (tracker && storefrontBtn.previousElementSibling !== tracker) {
+        host.insertBefore(storefrontBtn, tracker.nextSibling);
+      }
+    }
+
+    // ✅ THEME the storefront button to match this section's tier
+    themeStorefrontButton(storefrontBtn, section);
+
+    // Attach SSO click handler
+    const wrapperEl = document.getElementById('sf-campaign-wrapper');
+    if (storefrontBtn && wrapperEl) attachStorefrontHandler(storefrontBtn, wrapperEl);
+
+    return { block, btn, tracker, storefrontBtn };
   }
 
   /* ========= TIERING / FLOW ========= */
@@ -868,90 +953,57 @@
   }
 
   function boot(wrapper){
-    log('🚀 Starting boot process...');
-    if (isProcessing) {
-      warn('⚠️ Already processing, skipping boot');
-      return;
-    }
-    
+    if (isProcessing) return;
+
     const vars = readVars();
-    log('📊 Variables read:', vars);
     const tier = pickTier(vars);
-    log('🎯 Selected tier:', tier);
-    
-    // Inject styles FIRST before any DOM manipulation
+
+    // Inject styles FIRST
     injectStyles();
-    
-    // Call stats API on page load
+
+    // Stats API for tracker
     const code = getCode(wrapper);
-    if (code) {
-      callStatsAPI(code);
-    }
-    
+    if (code) callStatsAPI(code);
+
+    // Show the right tier
     showTier(tier, wrapper);
 
     const active = document.querySelector(`[data-tier="${tier}"]`) || document.querySelector('[data-tier]');
-    log('🎪 Active section found:', active?.getAttribute('data-tier') || 'none');
-    
     if (active) {
-      log('🔧 Setting up button for active section...');
       const result = ensureButtonBlockBelow(active);
-      log('🎯 Button setup result:', result ? 'success' : 'failed');
 
-      if (hxObserver) { 
-        log('🔄 Disconnecting existing observer...');
-        try { hxObserver.disconnect(); } catch(_){} 
-        hxObserver = null; 
-      }
-      
-      log('👀 Setting up mutation observer...');
+      if (hxObserver) { try { hxObserver.disconnect(); } catch(_){} hxObserver = null; }
+
+      // Observe for SPA re-renders; keep storefront button themed
       hxObserver = new MutationObserver(() => {
-        verbose('🔄 Mutation detected, checking if button needs re-ensuring...');
         const sec = document.querySelector(`[data-tier="${tier}"]`) || document.querySelector('[data-tier]');
         if (sec) {
-          // Only re-ensure if button or tracker doesn't exist
           const existingBtn = sec.nextElementSibling?.querySelector('.hx25-button');
           const existingTracker = sec.nextElementSibling?.querySelector('.hx25-tracker');
-          if (!existingBtn || !existingTracker) {
-            log('🔧 Button or tracker missing, re-ensuring...');
+          const existingStorefront = sec.nextElementSibling?.querySelector('.hx25-storefront-button');
+          if (!existingBtn || !existingTracker || !existingStorefront) {
             ensureButtonBlockBelow(sec);
           } else {
-            verbose('✅ Button and tracker still exist, skipping re-ensure');
+            // Re-apply theme just in case something changed
+            themeStorefrontButton(existingStorefront, sec);
           }
         }
       });
       try { 
         hxObserver.observe(wrapper, { childList:true, subtree:true }); 
-        log('✅ Mutation observer active');
-      } catch(e){
-        err('❌ Failed to start mutation observer:', e);
-      }
-    } else {
-      err('❌ No active section found!');
+      } catch(_){}
     }
-    
-    log('✅ Boot process complete');
   }
 
   function start(){
-    log('🌟 START called');
-    if (isProcessing) {
-      warn('⚠️ Already processing, aborting start');
-      return;
-    }
-    if (isDisabled()) {
-      warn('⚠️ Script disabled, aborting start');
-      return;
-    }
-    
-    log('⏳ Waiting for wrapper to be ready...');
-    // Inject styles early to ensure they're available
+    if (isProcessing || isDisabled()) return;
+
+    // Inject styles early
     injectStyles();
-    
+
     whenWrapperReady(wrapper => {
-      log('✅ Wrapper ready, hiding and starting boot sequence...');
       injectStyles();
-      whenTierReady(tier => {
+      whenTierReady(() => {
         setTimeout(() => boot(wrapper), INIT_DELAY);
       });
     });
@@ -973,7 +1025,7 @@
 
   let lastPathname = location.pathname;
   let navigationTimeout = null;
-  
+
   function handleNavigationChange(newPathname){
     if (newPathname === lastPathname) return;
     if (navigationTimeout) clearTimeout(navigationTimeout);
@@ -981,12 +1033,12 @@
     tracker.currentPage = newPathname;
     tracker.visitedPages.add(newPathname);
     isProcessing = false;
-    
+
     if (currentObserver) { currentObserver.disconnect(); currentObserver = null; }
     if (hxObserver)       { try { hxObserver.disconnect(); } catch(_){} hxObserver = null; }
 
     lastPathname = newPathname;
-    
+
     if (newPathname.includes('/portal')) {
       navigationTimeout = setTimeout(() => {
         if (shouldProcessPage(newPathname)) {
@@ -1004,32 +1056,13 @@
   history.replaceState = function(...args){ _rs.apply(this, args); setTimeout(() => handleNavigationChange(location.pathname), 60); };
 
   /* ========= BOOT ========= */
-  log('🎬 Script initialization starting...');
-  log('📍 Current pathname:', location.pathname);
-  log('📄 Document ready state:', document.readyState);
-  
   if (document.readyState === 'loading') {
-    log('⏳ Document still loading, waiting for DOMContentLoaded...');
-    document.addEventListener('DOMContentLoaded', () => { 
-      log('✅ DOMContentLoaded fired');
-      if (!isDisabled()) {
-        log('🚀 Starting application...');
-        start(); 
-      } else {
-        warn('❌ Application disabled, not starting');
-      }
-    }, { once:true });
+    document.addEventListener('DOMContentLoaded', () => { if (!isDisabled()) start(); }, { once:true });
   } else {
-    log('✅ Document already ready');
-    if (!isDisabled()) {
-      log('🚀 Starting application immediately...');
-      start();
-    } else {
-      warn('❌ Application disabled, not starting');
-    }
+    if (!isDisabled()) start();
   }
 
-  /* ========= ROLLBACK ========= */
+  /* ========= ROLLBACK / DEBUG ========= */
   try {
     window.HX25_rollback = function(){
       const styleEl = document.getElementById(STYLE_ID);
@@ -1040,49 +1073,25 @@
       blocks.forEach(b => b.remove());
       window[DISABLE_FLAG] = true;
     };
-    
-    // Test function to manually trigger button click
+
     window.HX25_testButton = function(){
-      log('🧪 Manual button test triggered');
       const btn = document.querySelector('.hx25-button');
-      if (btn) {
-        log('✅ Button found, triggering click...');
-        btn.click();
-      } else {
-        err('❌ No button found!');
-      }
+      if (btn) btn.click();
     };
-    
-    // Debug function to inspect button state
+
     window.HX25_debugButton = function(){
       const btn = document.querySelector('.hx25-button');
       if (btn) {
-        log('🔍 Button debug info:');
-        log('- ID:', btn.id);
-        log('- Classes:', btn.className);
-        log('- __hxLinked:', btn.__hxLinked);
-        log('- Event listeners:', getEventListeners ? getEventListeners(btn) : 'DevTools needed');
-        log('- Parent:', btn.parentElement?.className);
-        log('- Next sibling:', btn.nextElementSibling?.className);
-      } else {
-        err('❌ No button found!');
+        console.log('[HX25] Button debug -> id:', btn.id, 'classes:', btn.className, '__hxLinked:', btn.__hxLinked);
       }
     };
-    
-    // Test function to update tracker with different referral counts
+
     window.HX25_updateTracker = function(count = 2){
-      log('🧪 Updating tracker with', count, 'referrals');
       const tracker = document.querySelector('.hx25-tracker');
       if (tracker) {
         tracker.remove();
         const host = document.querySelector('.hx25-btn-host');
-        if (host) {
-          const newTracker = createTracker(count);
-          host.appendChild(newTracker);
-          log('✅ Tracker updated');
-        }
-      } else {
-        err('❌ No tracker found!');
+        if (host) host.appendChild(createTracker(count));
       }
     };
   } catch(_){}
