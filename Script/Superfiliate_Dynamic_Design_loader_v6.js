@@ -9,7 +9,7 @@
   const LOGO_SRC          = 'https://cdn.shopify.com/s/files/1/0405/7291/1765/files/Group_10879850.svg?v=1754920813';
   const STOREFRONT_LOGO   = 'https://i.imgur.com/I8q0MKx.png';
   const STOREFRONT_LABEL  = 'Click here to edit your storefront';
-  const LABEL_TEXT        = 'Generate your unique referral link';
+  const LABEL_TEXT        = 'Copy your referral link';
   const DEFAULT_LINK      = 'https://www.eventbrite.com/e/healf-experience-tickets-1545147591039?';
   const DISABLE_FLAG      = '__HX25_DISABLE__';
 
@@ -36,7 +36,10 @@
   const err  = (...a) => { if (DEBUG) try { console.error('[HX25]', ...a); } catch(_){} };
   const verbose = (...a) => { if (VERBOSE) try { console.log('[HX25-VERBOSE]', ...a); } catch(_){} };
 
-  if (!location.pathname.includes('/portal')) return;
+  const isLocalhost = (() => {
+    try { return /localhost|127\.0\.0\.1|\[::1\]/.test(location.hostname); } catch(_){ return false; }
+  })();
+  if (!location.pathname.includes('/portal') && !isLocalhost) return;
   const isDisabled = () => (typeof window !== 'undefined' && window[DISABLE_FLAG] === true);
 
   /* ========= STYLE ========= */
@@ -56,30 +59,36 @@
 /* Base button - slimmer */
 .hx25-button, .hx25-btn{
   position:relative; display:block; width:100%;
-  min-height:48px; border:0; border-radius:14px; overflow:hidden; cursor:pointer;
-  background:linear-gradient(135deg,#0b2f66 0%,#164a7f 28%,#2c6aa3 55%,#5b9bd5 78%,#a8c7e6 100%);
-  color:#fff; box-shadow:0 6px 22px rgba(11,47,102,.35);
-  transition:transform .2s ease, box-shadow .2s ease, filter .2s ease;
+  min-height:36px; border:1px solid rgba(255,255,255,.75); border-radius:9999px; overflow:hidden; cursor:pointer;
+  background:rgba(255,255,255,.8);
+  color:#0b2f66; box-shadow:0 3px 10px rgba(0,0,0,.12);
+  backdrop-filter: blur(10px) saturate(1.02);
+  transition:transform .16s ease, box-shadow .16s ease, background .16s ease, filter .16s ease;
   user-select:none; outline:none;
 }
-.hx25-button.hx25-has-video, .hx25-btn.hx25-has-video{ background:transparent; }
+.hx25-button:focus-visible{ outline:2px solid rgba(255,255,255,.85); outline-offset:2px; box-shadow:0 0 0 2px rgba(11,47,102,.45) inset; }
+.hx25-button.hx25-has-video, .hx25-btn.hx25-has-video{ background:rgba(255,255,255,.92); }
 .hx25-button:hover, .hx25-btn:hover{
   transform:translateY(-1px) scale(1.01);
-  box-shadow:0 12px 30px rgba(11,47,102,.48);
+  box-shadow:0 10px 22px rgba(0,0,0,.20);
+  background:#ffffff;
 }
+.hx25-button:active, .hx25-btn:active{ transform:translateY(0) scale(1.005); }
 /* Hover bloom */
-.hx25-button::after, .hx25-btn::after{
-  content:""; position:absolute; inset:-20%; z-index:3; pointer-events:none;
-  background:radial-gradient(closest-side, rgba(255,255,255,.14), rgba(255,255,255,0) 65%);
-  opacity:0; transition:opacity .25s ease;
-}
-.hx25-button:hover::after, .hx25-btn:hover::after{ opacity:1; }
+/* Disable hover bloom to prevent large white oval */
+.hx25-button::after, .hx25-btn::after{ content:none !important; display:none !important; }
 
 /* Video background */
 .hx25-video{
   position:absolute; inset:0; width:100%; height:100%; object-fit:cover;
   z-index:0; pointer-events:none; filter:saturate(1.08) contrast(1.04) brightness(.95);
 }
+
+/* Button placement inside main card */
+.hx25-tracker .hx25-button{ margin:8px 10px 6px auto; max-width:320px; }
+/* CTA row alignment (promo + button on same line) */
+.hx25-cta-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin:44px 0 8px; }
+.hx25-cta-row .hx25-button{ margin:0 16px 0 auto; height:36px; }
 
 /* Legibility + brightness overlay */
 .hx25-scrim{
@@ -100,25 +109,26 @@
 }
 @keyframes hx25-sheen{ to{ transform:translateX(240%) rotate(-12deg) } }
 
-/* Foreground - horizontal layout */
+/* Foreground - horizontal layout (inside button) */
 .hx25-layer{
   position:relative; z-index:3;
-  display:flex; flex-direction:row; align-items:center; justify-content:space-between;
-  padding:10px 16px;
+  display:flex; flex-direction:row; align-items:center; justify-content:center; gap:8px;
+  padding:8px 12px;
 }
-.hx25-logo{
-  display:block; height:45px; width:auto; order:1;
-  filter:drop-shadow(0 1px 1px rgba(0,0,0,.25));
-}
+/* Card header logo (outside button) */
+.hx25-card-header{ display:flex; align-items:left; justify-content:left; gap:8px; margin-top:2px; }
+.hx25-card-logo{ display:block; height:50px; width:auto; filter:drop-shadow(0 1px 1px rgba(0,0,0,.2)); opacity:.95; }
+.hx25-card-subtle{ font-family:'Avenir', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size:12px; font-weight:700; letter-spacing:.2px; opacity:.9; }
 .hx25-label{
   font-family:'Avenir', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  font-size:18px; font-weight:800; line-height:1.2; letter-spacing:.3px;
-  text-shadow:0 1px 1px rgba(0,0,0,.25); text-align:center;
-  order:2; flex:1;
+  font-size:17px; font-weight:500; line-height:1.2; letter-spacing:.2px;
+  text-shadow:none; text-align:center;
+  order:2; flex:0 1 auto;
 }
+.hx25-button .hx25-label{ color:#0b2f66; }
 @media (max-width:420px){
   .hx25-label{ font-size:16px }
-  .hx25-logo{ height:38px }
+  .hx25-logo{ height:20px }
   .hx25-layer{ padding:8px 12px }
 }
 
@@ -213,28 +223,41 @@
 
 /* Referral Tracker - 20% shorter */
 .hx25-tracker{
-  margin-top:20px; padding:12px 16px; border-radius:14px; overflow:hidden;
+  margin-top:10px; padding:8px 10px; border-radius:14px; overflow:hidden;
   position:relative; background:linear-gradient(135deg,#0b2f66 0%,#164a7f 28%,#2c6aa3 55%,#5b9bd5 78%,#a8c7e6 100%);
-  color:#fff; box-shadow:0 4px 16px rgba(11,47,102,.25);
+  color:#fff; box-shadow:none;
+}
+.hx25-corner-logo{
+  position:absolute; top:10px; left:10px; height:38px; width:auto;
+  z-index:3; opacity:.95; pointer-events:none;
+  filter:drop-shadow(0 1px 1px rgba(0,0,0,.25));
+}
+.hx25-inline-promo{
+  font-family:'Avenir', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size:14px; font-weight:500; letter-spacing:.2px; color:#fff; opacity:.98;
+  text-align:left; background:rgba(0,0,0,.22);
+  padding:10px 12px; border-radius:14px; display:block; line-height:1.25;
+  white-space:pre-line; max-width:220px;
 }
 .hx25-tracker-video{
   position:absolute; inset:0; width:100%; height:100%; object-fit:cover;
-  z-index:0; pointer-events:none; filter:saturate(1.08) contrast(1.04) brightness(.95);
+  z-index:0; pointer-events:none; filter:saturate(1.05) contrast(1.02) brightness(.9) blur(2px);
 }
 .hx25-tracker-scrim{
   position:absolute; inset:0; z-index:1; pointer-events:none;
-  background:linear-gradient(180deg, rgba(255,255,255,.12), rgba(255,255,255,.06) 25%, rgba(255,255,255,.06) 75%, rgba(255,255,255,.10));
+  background:rgba(255,255,255,.08);
 }
 .hx25-tracker-content{
-  position:relative; z-index:2; display:flex; flex-direction:column; align-items:center; gap:12px;
+  position:relative; z-index:2; display:flex; flex-direction:column; align-items:stretch; gap:6px;
 }
 .hx25-tracker-title{
   font-family:'Avenir', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  font-size:15px; font-weight:700; text-align:center; letter-spacing:.2px;
-  text-shadow:0 1px 1px rgba(0,0,0,.25); margin-bottom:2px;
+  font-size:15px; font-weight:800; text-align:left; letter-spacing:.2px;
+  text-shadow:0 1px 1px rgba(0,0,0,.2); margin-bottom:0;
+  opacity:.95;
 }
 .hx25-tracker-main{
-  display:flex; align-items:center; justify-content:center; gap:16px;
+  display:flex; flex-direction:column; align-items:stretch; justify-content:flex-start; gap:8px;
 }
 .hx25-tracker-circles{
   display:flex; gap:14px; align-items:center; justify-content:center;
@@ -283,6 +306,34 @@
   .hx25-circle.completed::after{ font-size:14px }
   .hx25-unlock-indicator{ font-size:11px; padding:5px 10px }
 }
+
+/* Rewards table (replaces circles) */
+.hx25-rewards-table{
+  width:100%; display:flex; flex-direction:column; gap:6px; margin-top:2px;
+}
+.hx25-reward-row{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:8px 12px; border-radius:10px;
+  background:rgba(255,255,255,.10); border:1px solid rgba(255,255,255,.18);
+  backdrop-filter:saturate(1.02);
+}
+.hx25-reward-name{
+  font-family:'Avenir', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size:14px; font-weight:700; letter-spacing:.2px;
+}
+.hx25-reward-amount{
+  font-family:'Avenir', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size:16px; font-weight:900;
+}
+.hx25-wallet-note{
+  font-family:'Avenir', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size:12px; font-weight:600; text-align:center; letter-spacing:.2px;
+  background:rgba(255,255,255,.2); padding:6px 12px; border-radius:16px;
+  text-shadow:0 1px 1px rgba(0,0,0,.25); margin-top:8px;
+  opacity:0; transform:translateY(-4px); transition:all .4s ease;
+}
+.hx25-wallet-note{ align-self:flex-start; text-align:left; }
+.hx25-wallet-note.visible{ opacity:1; transform:translateY(0); }
 `;
     log('✅ Styles injected/updated successfully');
   }
@@ -481,17 +532,9 @@
     const oldLabels = layer.querySelectorAll('.hx25-label-1, .hx25-label-2');
     oldLabels.forEach(label => label.remove());
 
-    // Logo (left side)
-    let logo = layer.querySelector('.hx25-logo');
-    if (!logo){
-      logo = document.createElement('img');
-      logo.className = 'hx25-logo';
-      logo.alt = 'HX25';
-      logo.decoding = 'async';
-      logo.loading  = 'eager';
-      logo.src = LOGO_SRC;
-      layer.appendChild(logo);
-    }
+    // Ensure no logo inside the button (logo now lives in card header)
+    const embeddedLogo = layer.querySelector('.hx25-logo');
+    if (embeddedLogo) embeddedLogo.remove();
 
     // Single-line label (center)
     let label = layer.querySelector('.hx25-label');
@@ -546,9 +589,12 @@
             note.textContent = '✓ Copied!';
             note.style.position = 'relative';
             note.style.display = 'inline-block';
-            note.style.color = '#ffffff';
-            note.style.fontWeight = 'bold';
+            note.style.color = '#0b2f66';
+            note.style.fontWeight = '700';
             note.style.fontSize = '12px';
+            note.style.textShadow = 'none';
+            note.style.marginLeft = '6px';
+            note.style.zIndex = '5';
             noteHost.appendChild(note);
             setTimeout(() => { try { note.remove(); } catch(_){ } }, 900);
           }
@@ -774,7 +820,7 @@
     tryPlay();
   }
 
-  function createTracker(completedReferrals = MOCK_REFERRALS){
+  function createTracker(){
     const tracker = document.createElement('div');
     tracker.className = 'hx25-tracker';
 
@@ -791,42 +837,64 @@
     content.className = 'hx25-tracker-content';
     tracker.appendChild(content);
 
+    // Corner logo (top-left of the card)
+    const cornerLogo = document.createElement('img');
+    cornerLogo.className = 'hx25-corner-logo';
+    cornerLogo.alt = 'HX25';
+    cornerLogo.decoding = 'async';
+    cornerLogo.loading  = 'eager';
+    cornerLogo.src = LOGO_SRC;
+    tracker.appendChild(cornerLogo);
+
+    // CTA row: promo (left) + button (right)
+    const ctaRow = document.createElement('div');
+    ctaRow.className = 'hx25-cta-row';
+    // Note: button will be appended to this row later; promo comes second
+    const promo = document.createElement('div');
+    promo.className = 'hx25-inline-promo';
+    promo.textContent = 'Share code HX10\nfor 10% off all tickets';
+    ctaRow.appendChild(promo);
+    content.appendChild(ctaRow);
+
     // Title
     const title = document.createElement('div');
     title.className = 'hx25-tracker-title';
-    title.textContent = 'Referral Progress';
+    title.textContent = 'Referral Rewards';
     content.appendChild(title);
 
-    // Main container (circles + indicator)
+    // Main container (rewards table)
     const main = document.createElement('div');
     main.className = 'hx25-tracker-main';
     content.appendChild(main);
 
-    // Circles
-    const circles = document.createElement('div');
-    circles.className = 'hx25-tracker-circles';
-    main.appendChild(circles);
+    const table = document.createElement('div');
+    table.className = 'hx25-rewards-table';
+    main.appendChild(table);
 
-    for (let i = 0; i < TRACKER_CIRCLES; i++) {
-      const circle = document.createElement('div');
-      circle.className = 'hx25-circle';
-      if (i < completedReferrals) circle.classList.add('completed');
-      circles.appendChild(circle);
-    }
+    const chips = [
+      { text: 'Explorer Pass', amount: '£50 reward' },
+      { text: 'Enhanced Pass', amount: '£100 reward' },
+      { text: 'VIP Pass', amount: '£250 reward' }
+    ];
 
-    // Unlock indicator
-    const indicator = document.createElement('div');
-    indicator.className = 'hx25-unlock-indicator';
-    if (completedReferrals >= TRACKER_CIRCLES) {
-      indicator.textContent = '🎟️ Free Ticket!';
-      indicator.classList.add('unlocked');
-    } else {
-      const remaining = TRACKER_CIRCLES - completedReferrals;
-      indicator.textContent = `${remaining} more for free ticket`;
-    }
-    main.appendChild(indicator);
+    chips.forEach(({ text, amount }) => {
+      const row = document.createElement('div');
+      row.className = 'hx25-reward-row';
 
-    setTimeout(() => { indicator.classList.add('visible'); }, 300);
+      const label = document.createElement('div');
+      label.className = 'hx25-reward-name';
+      label.textContent = text;
+
+      const val = document.createElement('div');
+      val.className = 'hx25-reward-amount';
+      val.textContent = amount;
+
+      row.appendChild(label);
+      row.appendChild(val);
+      table.appendChild(row);
+    });
+
+    // Removed wallet note per design update
 
     return tracker;
   }
@@ -873,18 +941,23 @@
     btn.classList.add('hx25-button','hx25-btn');
     btn.setAttribute('aria-label','HX25 Referral Link');
 
-    ensureVideo(btn);
-    ensureLayer(btn, 'hx25-scrim');
-    ensureLayer(btn, 'hx25-shine');
+    // Keep button minimal/glassy; no per-button video/sheen layers
     ensureForeground(btn);
     attachLinkAndA11y(btn, section);
 
-    // Add tracker below button
+    // Ensure tracker card exists, then place the button inside it (single extended card)
     let tracker = host.querySelector('.hx25-tracker');
     if (!tracker) {
       tracker = createTracker();
       host.appendChild(tracker);
     }
+    try {
+      const contentEl = tracker.querySelector('.hx25-tracker-content');
+      const ctaRow = contentEl && contentEl.querySelector('.hx25-cta-row');
+      if (ctaRow && btn.parentElement !== ctaRow) {
+        ctaRow.insertBefore(btn, ctaRow.firstChild);
+      }
+    } catch(_){ }
 
     // Add storefront button below tracker
     let storefrontBtn = host.querySelector('.hx25-storefront-button');
