@@ -59,8 +59,8 @@
 /* Base button - slimmer */
 .hx25-button, .hx25-btn{
   position:relative; display:block; width:100%;
-  min-height:36px; border:1px solid rgba(255,255,255,.75); border-radius:9999px; overflow:hidden; cursor:pointer;
-  background:rgba(255,255,255,.8);
+  min-height:36px; border:1px solid rgba(255,255,255,.9); border-radius:9999px; overflow:hidden; cursor:pointer;
+  background:rgba(255,255,255,.92);
   color:#0b2f66; box-shadow:0 3px 10px rgba(0,0,0,.12);
   backdrop-filter: blur(10px) saturate(1.02);
   transition:transform .16s ease, box-shadow .16s ease, background .16s ease, filter .16s ease;
@@ -85,7 +85,7 @@
 }
 
 /* Button placement inside main card */
-.hx25-tracker .hx25-button{ margin:8px 10px 6px auto; max-width:320px; }
+.hx25-tracker .hx25-button{ margin:8px 10px 6px auto; max-width:304px; }
 /* CTA row alignment (promo + button on same line) */
 .hx25-cta-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin:44px 0 8px; }
 .hx25-cta-row .hx25-button{ margin:0 16px 0 auto; height:36px; }
@@ -121,13 +121,13 @@
 .hx25-card-subtle{ font-family:'Avenir', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size:12px; font-weight:700; letter-spacing:.2px; opacity:.9; }
 .hx25-label{
   font-family:'Avenir', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  font-size:17px; font-weight:500; line-height:1.2; letter-spacing:.2px;
+  font-size:13px; font-weight:500; line-height:1.2; letter-spacing:.2px;
   text-shadow:none; text-align:center;
   order:2; flex:0 1 auto;
 }
 .hx25-button .hx25-label{ color:#0b2f66; }
 @media (max-width:420px){
-  .hx25-label{ font-size:16px }
+  .hx25-label{ font-size:12px }
   .hx25-logo{ height:20px }
   .hx25-layer{ padding:8px 12px }
 }
@@ -852,7 +852,7 @@
     // Note: button will be appended to this row later; promo comes second
     const promo = document.createElement('div');
     promo.className = 'hx25-inline-promo';
-    promo.textContent = 'Share code HX10\nfor 10% off all tickets';
+    promo.textContent = 'Share the code: HX10 for 10% off all tickets!';
     ctaRow.appendChild(promo);
     content.appendChild(ctaRow);
 
