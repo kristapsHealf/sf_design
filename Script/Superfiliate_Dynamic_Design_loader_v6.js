@@ -5,7 +5,7 @@
   const INIT_DELAY        = 320;
   const STYLE_ID          = 'hx25-button-tracker-v1';
   const BTN_SELECTOR      = '.hx25-button, .hx25-btn, [data-hx25-btn], #hx25-button';
-  const VIDEO_SRC         = 'https://i.imgur.com/1zJtkCw.mp4';
+  const VIDEO_SRC         = 'https://i.imgur.com/vABoRTx.mp4';
   const LOGO_SRC          = 'https://cdn.shopify.com/s/files/1/0405/7291/1765/files/Group_10879850.svg?v=1754920813';
   const STOREFRONT_LOGO   = 'https://i.imgur.com/I8q0MKx.png';
   const STOREFRONT_LABEL  = 'Click here to edit your storefront';
